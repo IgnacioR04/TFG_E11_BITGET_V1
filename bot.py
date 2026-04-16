@@ -113,10 +113,15 @@ def get_initial_state(equity_from_exchange=0.0):
 
 def load_state():
     if STATE_FILE.exists():
-        with open(STATE_FILE) as f:
-            return json.load(f)
-    # Si no existe state.json, leer equity de Bitget para inicializar
-    print("[E11] state.json no existe, inicializando...")
+        try:
+            with open(STATE_FILE) as f:
+                content = f.read().strip()
+            if content:
+                return json.loads(content)
+        except (json.JSONDecodeError, ValueError) as e:
+            print(f"[E11] state.json corrupto ({e}) — reiniciando estado")
+    # Si no existe o esta corrupto, leer equity de Bitget
+    print("[E11] Inicializando state.json...")
     initial_eq = 0.0
     if LIVE_MODE:
         try:
