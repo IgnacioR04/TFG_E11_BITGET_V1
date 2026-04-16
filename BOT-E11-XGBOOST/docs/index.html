@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>E11 Bot — Dashboard</title>
+    <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg0:#0A0A0C; --bg1:#111114; --bg2:#19191E; --bg3:#222228; --bg4:#2C2C33;
+            --border:#27272E; --border2:#333340;
+            --text:#F0F0F2; --text2:#A0A0AB; --text3:#5C5C66;
+            --neon:#3DFFA2; --neon-dim:rgba(61,255,162,.08); --neon-glow:rgba(61,255,162,.25);
+            --red:#FF6B6B; --red-dim:rgba(255,107,107,.08);
+            --blue:#6BA3FF; --amber:#FFD666; --purple:#B28DFF; --teal:#66F5E0;
+        }
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{font-family:'IBM Plex Sans',system-ui,sans-serif;background:var(--bg0);color:var(--text);-webkit-font-smoothing:antialiased;}
+
+        /* HEADER */
+        .hdr{background:var(--bg1);border-bottom:1px solid var(--border);padding:0 28px;height:50px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100;}
+        .hdr-brand{display:flex;align-items:center;gap:10px;}
+        .hdr-brand h1{font-size:15px;font-weight:700;letter-spacing:-.3px;}
+        .hdr-badge{font-size:9px;color:var(--text3);background:var(--bg3);padding:2px 7px;border-radius:3px;font-weight:500;letter-spacing:.3px;}
+        .hdr-right{display:flex;align-items:center;gap:18px;}
+        .tk{display:flex;align-items:baseline;gap:5px;}
+        .tk-l{font-size:9px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:.8px;}
+        .tk-p{font-size:14px;font-weight:700;font-family:'JetBrains Mono',monospace;}
+        .tk-c{font-size:11px;font-weight:600;font-family:'JetBrains Mono',monospace;}
+        .up{color:var(--neon)}.down{color:var(--red)}
+        .hdr-time{font-size:9px;color:var(--text3);font-family:'JetBrains Mono',monospace;}
+        .dot{width:6px;height:6px;border-radius:50%;background:var(--neon);box-shadow:0 0 8px var(--neon-glow);animation:pulse 2s infinite;}
+        .dot.paused{background:var(--amber);box-shadow:0 0 8px rgba(255,214,102,.35);}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+
+        /* TABS */
+        .tabs{display:flex;border-bottom:1px solid var(--border);padding:0 28px;background:var(--bg1);}
+        .tab{padding:11px 18px;font-size:11px;font-weight:500;color:var(--text3);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;font-family:inherit;letter-spacing:.2px;transition:color .15s;}
+        .tab:hover{color:var(--text2)}.tab.on{color:var(--text);border-bottom-color:var(--neon);font-weight:600;}
+        .pane{display:none;padding:18px 28px 36px;max-width:1440px;margin:0 auto;}
+        .pane.on{display:block;animation:fadeIn .2s ease;}
+        @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+
+        /* KPI */
+        .kpis{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+        .kpi{background:var(--bg2);border:1px solid var(--border);border-radius:8px;padding:12px 14px;flex:1;min-width:135px;}
+        .kpi:hover{border-color:var(--border2);}
+        .kpi-l{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:5px;}
+        .kpi-v{font-size:19px;font-weight:800;font-family:'JetBrains Mono',monospace;line-height:1.2;}
+        .kpi-s{font-size:10px;color:var(--text3);margin-top:2px;font-family:'JetBrains Mono',monospace;}
+
+        /* CHART CARD */
+        .cc{background:var(--bg2);border:1px solid var(--border);border-radius:8px;margin-bottom:10px;overflow:hidden;}
+        .cc-h{padding:10px 14px 0;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:6px;}
+        .cc-t{font-size:12px;font-weight:600;color:var(--text2);}
+
+        /* PERIOD BUTTONS */
+        .pbs{display:flex;gap:2px;background:var(--bg3);border-radius:6px;padding:2px;}
+        .pb{font-size:10px;font-weight:600;color:var(--text3);background:transparent;border:none;cursor:pointer;padding:4px 10px;border-radius:5px;font-family:inherit;transition:all .12s;letter-spacing:.2px;}
+        .pb:hover{color:var(--text2)}.pb.on{background:var(--bg1);color:var(--neon);box-shadow:0 1px 4px rgba(0,0,0,.4);}
+
+        /* GRIDS */
+        .g2{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+        .g3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;}
+
+        /* SIGNAL BADGE */
+        .sig{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;font-family:'JetBrains Mono',monospace;letter-spacing:.3px;}
+        .sig.LONG{background:var(--neon-dim);color:var(--neon);border:1px solid rgba(61,255,162,.2);}
+        .sig.SHORT{background:var(--red-dim);color:var(--red);border:1px solid rgba(255,107,107,.2);}
+        .sig.HOLD{background:var(--bg3);color:var(--text3);border:1px solid var(--border);}
+        .sig.PAUSED{background:rgba(255,214,102,.08);color:var(--amber);border:1px solid rgba(255,214,102,.2);}
+
+        /* FILTERS TABLE */
+        .ft{width:100%;border-collapse:collapse;font-size:12px;}
+        .ft td{padding:9px 12px;border-bottom:1px solid var(--border);font-family:'JetBrains Mono',monospace;}
+        .ft td:first-child{color:var(--text3);font-size:10px;text-transform:uppercase;letter-spacing:.5px;font-family:'IBM Plex Sans',sans-serif;font-weight:600;}
+        .ft tr:last-child td{border-bottom:none;}
+        .ok{color:var(--neon)} .fail{color:var(--red)} .warn{color:var(--amber)}
+
+        /* TRADES TABLE */
+        .tt-wrap{overflow-x:auto;}
+        .tbl{width:100%;border-collapse:collapse;font-size:11px;}
+        .tbl thead th{text-align:left;padding:6px 10px;color:var(--text3);font-weight:600;font-size:9px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border);}
+        .tbl thead th:nth-child(n+3){text-align:right;}
+        .tbl tbody td{padding:8px 10px;border-bottom:1px solid var(--border);font-variant-numeric:tabular-nums;}
+        .tbl tbody td:nth-child(n+3){text-align:right;font-family:'JetBrains Mono',monospace;}
+        .tbl tbody tr:last-child td{border-bottom:none;}
+        .tbl tbody tr:hover{background:var(--bg3);}
+
+        /* PAUSE BANNER */
+        .pause-banner{background:rgba(255,214,102,.08);border:1px solid rgba(255,214,102,.25);border-radius:8px;padding:12px 16px;margin-bottom:14px;display:flex;align-items:center;gap:10px;font-size:12px;color:var(--amber);}
+        .pause-banner strong{font-weight:700;}
+
+        /* POSITION CARD */
+        .pos-card{background:var(--bg3);border:1px solid var(--border2);border-radius:8px;padding:14px 16px;margin-bottom:14px;}
+        .pos-card-title{font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.7px;font-weight:600;margin-bottom:10px;}
+        .pos-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;}
+        .pos-label{font-size:11px;color:var(--text3);}
+        .pos-value{font-size:13px;font-weight:600;font-family:'JetBrains Mono',monospace;}
+
+        footer{text-align:center;padding:18px;font-size:10px;color:var(--text3);border-top:1px solid var(--border);margin-top:6px;line-height:1.8;}
+        .js-plotly-plot .plotly .modebar{display:none!important;}
+        @media(max-width:1024px){.g3,.g2{grid-template-columns:1fr}.hdr{padding:10px 14px;flex-wrap:wrap;height:auto;gap:6px}.tabs{padding:0 14px;overflow-x:auto}.pane{padding:12px}}
+    </style>
+</head>
+<body>
+
+<header class="hdr">
+    <div class="hdr-brand">
+        <h1>E11 Bot</h1>
+        <span class="hdr-badge">XGBoost · HMM · GARCH · BTC/USDT Perp</span>
+    </div>
+    <div class="hdr-right">
+        <div class="dot" id="status-dot"></div>
+        <div class="tk">
+            <span class="tk-l">BTC</span>
+            <span class="tk-p" id="hdr-btc">—</span>
+        </div>
+        <div class="tk">
+            <span class="tk-l">Señal</span>
+            <span id="hdr-signal" class="sig HOLD">HOLD</span>
+        </div>
+        <div class="tk">
+            <span class="tk-l">Equity</span>
+            <span class="tk-p" id="hdr-equity">—</span>
+        </div>
+        <span class="hdr-time" id="hdr-time">—</span>
+    </div>
+</header>
+
+<nav class="tabs">
+    <button class="tab on" onclick="sw('overview',this)">Overview</button>
+    <button class="tab" onclick="sw('filtros',this)">Filtros</button>
+    <button class="tab" onclick="sw('trades',this)">Trades</button>
+    <button class="tab" onclick="sw('equity',this)">Equity</button>
+</nav>
+
+<!-- ===== TAB 1: OVERVIEW ===== -->
+<div id="p-overview" class="pane on">
+    <div id="pause-banner" class="pause-banner" style="display:none">
+        <strong>⚠ BOT PAUSADO —</strong> <span id="pause-reason">—</span>
+    </div>
+
+    <div class="kpis">
+        <div class="kpi">
+            <div class="kpi-l">Equity</div>
+            <div class="kpi-v" id="k-equity">—</div>
+            <div class="kpi-s" id="k-equity-sub">USDT</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Disponible</div>
+            <div class="kpi-v" id="k-avail">—</div>
+            <div class="kpi-s">USDT libre</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">PnL Total</div>
+            <div class="kpi-v" id="k-pnl">—</div>
+            <div class="kpi-s" id="k-pnl-sub">desde inicio</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Unrealized PnL</div>
+            <div class="kpi-v" id="k-unreal">—</div>
+            <div class="kpi-s">posicion abierta</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Trades</div>
+            <div class="kpi-v" id="k-trades">—</div>
+            <div class="kpi-s" id="k-wr">—% win rate</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Ejecuciones</div>
+            <div class="kpi-v" id="k-runs">—</div>
+            <div class="kpi-s">GitHub Actions</div>
+        </div>
+    </div>
+
+    <!-- Posicion activa -->
+    <div id="pos-card" class="pos-card" style="display:none">
+        <div class="pos-card-title">⚡ Posicion Activa</div>
+        <div class="g2" style="gap:8px">
+            <div>
+                <div class="pos-row"><span class="pos-label">Lado</span><span class="pos-value" id="pos-side">—</span></div>
+                <div class="pos-row"><span class="pos-label">Entry</span><span class="pos-value" id="pos-entry">—</span></div>
+                <div class="pos-row"><span class="pos-label">Stop Loss</span><span class="pos-value down" id="pos-sl">—</span></div>
+            </div>
+            <div>
+                <div class="pos-row"><span class="pos-label">Take Profit</span><span class="pos-value up" id="pos-tp">—</span></div>
+                <div class="pos-row"><span class="pos-label">Size BTC</span><span class="pos-value" id="pos-size">—</span></div>
+                <div class="pos-row"><span class="pos-label">Leverage</span><span class="pos-value" id="pos-lev">—</span></div>
+            </div>
+        </div>
+    </div>
+
+    <!-- PnL diario -->
+    <div class="cc">
+        <div class="cc-h"><span class="cc-t">PnL Diario (USDT)</span></div>
+        <div id="c-daily" style="height:250px"></div>
+    </div>
+
+    <!-- Ultimos trades -->
+    <div class="cc" style="padding:14px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px">Ultimos Trades</div>
+        <div class="tt-wrap">
+            <table class="tbl" id="t-trades">
+                <thead><tr>
+                    <th>Lado</th><th>Fecha</th>
+                    <th>Entry</th><th>Exit</th>
+                    <th>Size BTC</th><th>PnL USDT</th><th>PnL %</th>
+                    <th>Razon cierre</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== TAB 2: FILTROS ===== -->
+<div id="p-filtros" class="pane">
+    <div class="kpis">
+        <div class="kpi">
+            <div class="kpi-l">Señal</div>
+            <div class="kpi-v"><span id="f-signal" class="sig HOLD">HOLD</span></div>
+            <div class="kpi-s">ultima ejecucion</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Regimen HMM</div>
+            <div class="kpi-v" id="f-regime">—</div>
+            <div class="kpi-s">heuristica rolling</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Vol Percentil</div>
+            <div class="kpi-v" id="f-vol">—</div>
+            <div class="kpi-s">proxy GARCH · umbral 0.80</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">EMA200 Slope</div>
+            <div class="kpi-v" id="f-ema">—</div>
+            <div class="kpi-s">pendiente 5 dias</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">XGBoost Prob</div>
+            <div class="kpi-v" id="f-prob">—</div>
+            <div class="kpi-s">dead zone ±0.20</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Fear & Greed</div>
+            <div class="kpi-v" id="f-fg">—</div>
+            <div class="kpi-s">alternative.me</div>
+        </div>
+    </div>
+
+    <div class="cc" style="padding:14px">
+        <div class="cc-t" style="margin-bottom:12px">Estado del Pipeline</div>
+        <table class="ft" id="ft-pipeline">
+            <tbody>
+                <tr><td>Regimen HMM</td><td id="ftr-regime">—</td></tr>
+                <tr><td>Vol OK (≤0.80)</td><td id="ftr-vol">—</td></tr>
+                <tr><td>EMA200 OK (slope &gt; 0)</td><td id="ftr-ema">—</td></tr>
+                <tr><td>XGBoost prob</td><td id="ftr-prob">—</td></tr>
+                <tr><td>Dead zone</td><td id="ftr-dz">—</td></tr>
+                <tr><td>Kelly pct</td><td id="ftr-kelly">—</td></tr>
+                <tr><td>Senal final</td><td id="ftr-signal">—</td></tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="g2">
+        <div class="cc">
+            <div class="cc-h">
+                <span class="cc-t">Distribucion Probabilidades XGBoost</span>
+            </div>
+            <div id="c-prob-hist" style="height:280px"></div>
+        </div>
+        <div class="cc">
+            <div class="cc-h">
+                <span class="cc-t">Vol Percentil Historico</span>
+            </div>
+            <div id="c-vol-hist" style="height:280px"></div>
+        </div>
+    </div>
+</div>
+
+<!-- ===== TAB 3: TRADES ===== -->
+<div id="p-trades" class="pane">
+    <div class="kpis">
+        <div class="kpi">
+            <div class="kpi-l">Total Trades</div>
+            <div class="kpi-v" id="t-total">0</div>
+            <div class="kpi-s">ejecutados</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Win Rate</div>
+            <div class="kpi-v" id="t-wr">—</div>
+            <div class="kpi-s">% ganadores</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">PnL Medio</div>
+            <div class="kpi-v" id="t-avg">—</div>
+            <div class="kpi-s">USDT por trade</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Mejor Trade</div>
+            <div class="kpi-v up" id="t-best">—</div>
+            <div class="kpi-s">USDT</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Peor Trade</div>
+            <div class="kpi-v down" id="t-worst">—</div>
+            <div class="kpi-s">USDT</div>
+        </div>
+    </div>
+
+    <div class="cc">
+        <div class="cc-h">
+            <span class="cc-t">PnL por Trade</span>
+        </div>
+        <div id="c-trade-pnl" style="height:300px"></div>
+    </div>
+
+    <div class="cc" style="padding:14px;margin-top:10px">
+        <div style="font-size:10px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:10px">Historial Completo</div>
+        <div class="tt-wrap">
+            <table class="tbl" id="t-all-trades">
+                <thead><tr>
+                    <th>#</th><th>Lado</th><th>Apertura</th><th>Cierre</th>
+                    <th>Entry</th><th>Exit</th><th>Size BTC</th>
+                    <th>PnL USDT</th><th>PnL %</th><th>Kelly pct</th>
+                </tr></thead>
+                <tbody></tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== TAB 4: EQUITY ===== -->
+<div id="p-equity" class="pane">
+    <div class="kpis">
+        <div class="kpi">
+            <div class="kpi-l">Equity Actual</div>
+            <div class="kpi-v" id="e-equity">—</div>
+            <div class="kpi-s">USDT</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Equity Inicial</div>
+            <div class="kpi-v" id="e-initial">—</div>
+            <div class="kpi-s">al conectar</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">PnL Total</div>
+            <div class="kpi-v" id="e-pnl">—</div>
+            <div class="kpi-s" id="e-pnl-pct">—</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Drawdown</div>
+            <div class="kpi-v down" id="e-dd">—</div>
+            <div class="kpi-s">max desde pico</div>
+        </div>
+    </div>
+
+    <div class="cc">
+        <div class="cc-h">
+            <span class="cc-t">Equity Curve</span>
+            <div class="pbs" id="pbs-eq">
+                <button class="pb" onclick="filterEq(60,this)">1H</button>
+                <button class="pb" onclick="filterEq(360,this)">6H</button>
+                <button class="pb on" onclick="filterEq(1440,this)">1D</button>
+                <button class="pb" onclick="filterEq(10080,this)">7D</button>
+                <button class="pb" onclick="filterEq(-1,this)">Todo</button>
+            </div>
+        </div>
+        <div id="c-equity" style="height:380px"></div>
+    </div>
+
+    <div class="cc">
+        <div class="cc-h"><span class="cc-t">PnL Diario Acumulado</span></div>
+        <div id="c-daily2" style="height:250px"></div>
+    </div>
+</div>
+
+<footer>E11 Bot — HMM + GARCH + XGBoost · BTC/USDT Perp · Bitget · Ignacio Rodriguez · UFV 2025-2026</footer>
+
+<script>
+const CFG = {displayModeBar:false, responsive:true};
+const L = {
+    paper_bgcolor:'transparent', plot_bgcolor:'transparent',
+    font:{family:"'IBM Plex Sans'", color:'#5C5C66', size:10},
+    margin:{l:50, r:12, t:10, b:32},
+    xaxis:{gridcolor:'#1E1E24', showgrid:true, zeroline:false, linecolor:'#27272E', tickfont:{size:9}},
+    yaxis:{gridcolor:'#1E1E24', showgrid:true, zeroline:false, linecolor:'#27272E', tickfont:{size:9}},
+    hoverlabel:{bgcolor:'#222228', bordercolor:'#333340', font:{color:'#F0F0F2', size:11, family:"'JetBrains Mono'"}}
+};
+
+let D = null; // datos del bot
+let eqData = []; // equity history completo
+
+// Tabs
+function sw(id, b) {
+    document.querySelectorAll('.pane').forEach(p => p.classList.remove('on'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('on'));
+    document.getElementById('p-'+id).classList.add('on');
+    b.classList.add('on');
+    setTimeout(() => window.dispatchEvent(new Event('resize')), 50);
+}
+
+// Formatear numeros
+function fmt(v, dec=2) {
+    if (v == null || isNaN(v)) return '—';
+    return (+v).toFixed(dec);
+}
+function fmtSign(v, dec=2) {
+    if (v == null || isNaN(v)) return '—';
+    const s = (+v).toFixed(dec);
+    return v >= 0 ? '+'+s : s;
+}
+function colorClass(v) {
+    if (v == null) return '';
+    return v > 0 ? 'up' : v < 0 ? 'down' : '';
+}
+
+// ── Actualizar todo el UI ───────────────────────────────────────────────────
+function updateUI(d) {
+    D = d;
+    const bal  = d.live_balance || {};
+    const pos  = d.position || {};
+    const filt = d.filters  || {};
+
+    // Header
+    document.getElementById('hdr-btc').textContent   = '$' + fmt(d.btc_price, 0);
+    document.getElementById('hdr-equity').textContent = fmt(bal.equity, 2) + ' USDT';
+    const sig = filt.signal || 'HOLD';
+    const sigEl = document.getElementById('hdr-signal');
+    sigEl.textContent = sig;
+    sigEl.className = 'sig ' + sig;
+    const dot = document.getElementById('status-dot');
+    dot.className = d.paused ? 'dot paused' : 'dot';
+
+    const ts = d.updated_at ? new Date(d.updated_at).toLocaleTimeString('es-ES') : '—';
+    document.getElementById('hdr-time').textContent = ts + ' UTC';
+
+    // Pause banner
+    const pb = document.getElementById('pause-banner');
+    if (d.paused) {
+        pb.style.display = 'flex';
+        document.getElementById('pause-reason').textContent = d.pause_reason || 'Razon desconocida';
+    } else {
+        pb.style.display = 'none';
+    }
+
+    // KPIs overview
+    const pnl     = d.total_pnl_usdt || 0;
+    const initial = d.initial_equity  || 0;
+    const pnlPct  = initial > 0 ? ((bal.equity - initial) / initial * 100) : 0;
+
+    document.getElementById('k-equity').textContent   = fmt(bal.equity, 2);
+    document.getElementById('k-equity').className     = 'kpi-v ' + colorClass(bal.equity - initial);
+    document.getElementById('k-equity-sub').textContent = fmtSign(pnlPct, 2) + '% total';
+
+    document.getElementById('k-avail').textContent    = fmt(bal.available, 2);
+    document.getElementById('k-pnl').textContent      = fmtSign(pnl, 4);
+    document.getElementById('k-pnl').className        = 'kpi-v ' + colorClass(pnl);
+    document.getElementById('k-pnl-sub').textContent  = fmtSign(pnlPct, 2) + '%';
+
+    const unreal = bal.unrealized_pl || 0;
+    document.getElementById('k-unreal').textContent   = fmtSign(unreal, 4);
+    document.getElementById('k-unreal').className     = 'kpi-v ' + colorClass(unreal);
+
+    document.getElementById('k-trades').textContent   = d.num_trades || 0;
+    document.getElementById('k-wr').textContent       = fmt(d.win_rate, 1) + '% win rate';
+    document.getElementById('k-runs').textContent     = d.runs || 0;
+
+    // Posicion activa
+    const posCard = document.getElementById('pos-card');
+    if (pos.open) {
+        posCard.style.display = 'block';
+        document.getElementById('pos-side').textContent  = pos.side || '—';
+        document.getElementById('pos-entry').textContent = '$' + fmt(pos.entry_price, 0);
+        document.getElementById('pos-sl').textContent    = '$' + fmt(pos.sl_price, 0);
+        document.getElementById('pos-tp').textContent    = '$' + fmt(pos.tp_price, 0);
+        document.getElementById('pos-size').textContent  = fmt(pos.size_btc, 5) + ' BTC';
+        document.getElementById('pos-lev').textContent   = (pos.leverage || '—') + 'x';
+    } else {
+        posCard.style.display = 'none';
+    }
+
+    // Tabla ultimos trades (overview)
+    renderTradesTable('t-trades', (d.trades || []).slice().reverse().slice(0, 10));
+
+    // PnL diario
+    renderDailyPnl('c-daily',  d.daily_pnl || []);
+    renderDailyPnl('c-daily2', d.daily_pnl || []);
+
+    // Filtros
+    updateFiltros(filt);
+
+    // Trades tab
+    updateTradesTab(d.trades || []);
+
+    // Equity tab
+    eqData = d.equity_history || [];
+    updateEquityTab(d);
+    filterEq(1440, document.querySelector('#pbs-eq .pb.on') || document.querySelector('#pbs-eq .pb'));
+}
+
+// ── Filtros tab ──────────────────────────────────────────────────────────────
+function updateFiltros(filt) {
+    const sig = filt.signal || 'HOLD';
+    const sigEl = document.getElementById('f-signal');
+    sigEl.textContent = sig; sigEl.className = 'sig ' + sig;
+
+    // Regimen
+    const regime = filt.regime || '—';
+    const regEl  = document.getElementById('f-regime');
+    regEl.textContent = regime;
+    regEl.className   = 'kpi-v ' + (regime === 'BULL' ? 'up' : regime === 'BEAR' ? 'down' : '');
+
+    const volPct = filt.vol_percentile;
+    const volEl  = document.getElementById('f-vol');
+    volEl.textContent = volPct != null ? fmt(volPct, 3) : '—';
+    volEl.className   = 'kpi-v ' + (volPct != null ? (volPct <= 0.80 ? 'up' : 'down') : '');
+
+    const emaSlope = filt.ema200_slope;
+    const emaEl    = document.getElementById('f-ema');
+    emaEl.textContent = emaSlope != null ? fmtSign(emaSlope, 0) : '—';
+    emaEl.className   = 'kpi-v ' + (emaSlope != null ? (emaSlope > 0 ? 'up' : 'down') : '');
+
+    const prob   = filt.prob;
+    const probEl = document.getElementById('f-prob');
+    probEl.textContent = prob != null ? fmt(prob, 4) : '—';
+    probEl.className   = 'kpi-v ' + (prob != null ? (prob > 0.7 ? 'up' : prob < 0.3 ? 'down' : '') : '');
+
+    const fg = filt.fear_greed_raw;
+    document.getElementById('f-fg').textContent = fg != null ? fmt(fg, 0) : '—';
+
+    // Tabla pipeline
+    document.getElementById('ftr-regime').innerHTML = regime === 'BULL'
+        ? `<span class="ok">✓ ${regime}</span>` : `<span class="fail">✗ ${regime}</span>`;
+    document.getElementById('ftr-vol').innerHTML = filt.vol_ok
+        ? `<span class="ok">✓ ${fmt(volPct,3)}</span>` : `<span class="fail">✗ ${fmt(volPct,3)} (>&nbsp;0.80)</span>`;
+    document.getElementById('ftr-ema').innerHTML = filt.ema200_ok
+        ? `<span class="ok">✓ slope=${fmtSign(emaSlope,0)}</span>` : `<span class="fail">✗ slope=${fmtSign(emaSlope,0)}</span>`;
+    document.getElementById('ftr-prob').textContent = prob != null ? fmt(prob,4) : 'No calculado';
+    document.getElementById('ftr-dz').innerHTML = filt.in_dead_zone != null
+        ? (filt.in_dead_zone ? `<span class="fail">Dentro de dead zone</span>` : `<span class="ok">Fuera de dead zone</span>`)
+        : '—';
+    document.getElementById('ftr-kelly').textContent = filt.pct_kelly != null
+        ? fmt(filt.pct_kelly * 100, 1) + '%' : '—';
+    document.getElementById('ftr-signal').innerHTML = `<span class="sig ${sig}">${sig}</span>`;
+}
+
+// ── Trades tab ───────────────────────────────────────────────────────────────
+function updateTradesTab(trades) {
+    document.getElementById('t-total').textContent = trades.length;
+    if (!trades.length) return;
+
+    const pnls   = trades.map(t => t.pnl_usdt || 0);
+    const wins   = pnls.filter(p => p > 0);
+    const losses = pnls.filter(p => p < 0);
+    const wr     = (wins.length / pnls.length * 100).toFixed(1);
+    const avg    = pnls.reduce((a,b) => a+b, 0) / pnls.length;
+    const best   = Math.max(...pnls);
+    const worst  = Math.min(...pnls);
+
+    document.getElementById('t-wr').textContent    = wr + '%';
+    document.getElementById('t-avg').textContent   = fmtSign(avg, 4);
+    document.getElementById('t-avg').className     = 'kpi-v ' + colorClass(avg);
+    document.getElementById('t-best').textContent  = '+' + fmt(best, 4);
+    document.getElementById('t-worst').textContent = fmt(worst, 4);
+
+    renderTradesTable('t-all-trades', [...trades].reverse(), true);
+
+    // Grafica PnL por trade
+    const colors = pnls.map(p => p >= 0 ? '#3DFFA2' : '#FF6B6B');
+    Plotly.react('c-trade-pnl', [{
+        type: 'bar', x: trades.map((_,i) => i+1), y: pnls,
+        marker: {color: colors}, hovertemplate: 'Trade %{x}<br>PnL: %{y:.4f} USDT<extra></extra>'
+    }], {
+        ...L, margin:{l:55, r:12, t:10, b:32},
+        shapes: [{type:'line', x0:0, x1:trades.length+1, y0:0, y1:0,
+                  line:{color:'#333340', width:1, dash:'dot'}}]
+    }, CFG);
+}
+
+function renderTradesTable(id, trades, showIndex=false) {
+    const tbody = document.querySelector('#'+id+' tbody');
+    tbody.innerHTML = '';
+    if (!trades.length) {
+        tbody.innerHTML = '<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:20px">Sin trades aun</td></tr>';
+        return;
+    }
+    trades.forEach((t, i) => {
+        const pnl = t.pnl_usdt || 0;
+        const cls = pnl >= 0 ? 'up' : 'down';
+        const dateOpen  = t.open_time  ? t.open_time.replace('T',' ').slice(0,16) : '—';
+        const dateClose = t.close_time ? t.close_time.replace('T',' ').slice(0,16): '—';
+        const tr = document.createElement('tr');
+        if (showIndex) {
+            tr.innerHTML = `
+                <td style="color:var(--text3)">${trades.length - i}</td>
+                <td><span class="sig ${t.side||'HOLD'}" style="font-size:10px">${t.side||'—'}</span></td>
+                <td style="color:var(--text2)">${dateOpen}</td>
+                <td style="color:var(--text2)">${dateClose}</td>
+                <td>$${fmt(t.entry_price,0)}</td>
+                <td>$${fmt(t.exit_price,0)}</td>
+                <td>${fmt(t.size_btc,5)}</td>
+                <td class="${cls}">${fmtSign(pnl,4)}</td>
+                <td class="${cls}">${fmtSign(t.pnl_pct,2)}%</td>
+                <td style="color:var(--text3)">${t.pct_used ? fmt(t.pct_used*100,1)+'%' : '—'}</td>
+            `;
+        } else {
+            tr.innerHTML = `
+                <td><span class="sig ${t.side||'HOLD'}" style="font-size:10px">${t.side||'—'}</span></td>
+                <td style="color:var(--text2)">${dateOpen}</td>
+                <td>$${fmt(t.entry_price,0)}</td>
+                <td>$${fmt(t.exit_price,0)}</td>
+                <td>${fmt(t.size_btc,5)}</td>
+                <td class="${cls}">${fmtSign(pnl,4)}</td>
+                <td class="${cls}">${fmtSign(t.pnl_pct,2)}%</td>
+                <td style="color:var(--text3)">${t.exit_reason||'—'}</td>
+            `;
+        }
+        tbody.appendChild(tr);
+    });
+}
+
+// ── Equity tab ───────────────────────────────────────────────────────────────
+function updateEquityTab(d) {
+    const bal     = d.live_balance || {};
+    const initial = d.initial_equity || 0;
+    const pnl     = (bal.equity || 0) - initial;
+    const pnlPct  = initial > 0 ? (pnl / initial * 100) : 0;
+
+    document.getElementById('e-equity').textContent  = fmt(bal.equity, 4);
+    document.getElementById('e-initial').textContent = fmt(initial, 4);
+    document.getElementById('e-pnl').textContent     = fmtSign(pnl, 4);
+    document.getElementById('e-pnl').className       = 'kpi-v ' + colorClass(pnl);
+    document.getElementById('e-pnl-pct').textContent = fmtSign(pnlPct, 2) + '%';
+
+    // Drawdown
+    const eqVals = (d.equity_history || []).map(e => e.equity);
+    if (eqVals.length > 1) {
+        let maxEq = eqVals[0], maxDD = 0;
+        eqVals.forEach(e => {
+            maxEq = Math.max(maxEq, e);
+            const dd = (e - maxEq) / maxEq * 100;
+            maxDD = Math.min(maxDD, dd);
+        });
+        document.getElementById('e-dd').textContent = fmt(maxDD, 2) + '%';
+    }
+}
+
+function filterEq(minutes, btn) {
+    if (btn) {
+        document.querySelectorAll('#pbs-eq .pb').forEach(b => b.classList.remove('on'));
+        btn.classList.add('on');
+    }
+    let data = eqData;
+    if (minutes > 0 && data.length > 0) {
+        const cutoff = new Date(Date.now() - minutes * 60 * 1000);
+        data = data.filter(e => new Date(e.ts) >= cutoff);
+    }
+    if (!data.length) {
+        Plotly.react('c-equity', [], L, CFG);
+        return;
+    }
+    const xs  = data.map(e => new Date(e.ts));
+    const ys  = data.map(e => e.equity);
+    const yup = data.map(e => (e.unrealPL || 0) + e.equity);
+
+    Plotly.react('c-equity', [
+        {
+            type: 'scatter', mode: 'lines', x: xs, y: ys,
+            name: 'Equity', line: {color: '#3DFFA2', width: 2},
+            fill: 'tozeroy', fillcolor: 'rgba(61,255,162,.06)',
+            hovertemplate: '%{y:.4f} USDT<extra>Equity</extra>'
+        }
+    ], {
+        ...L,
+        margin: {l:60, r:12, t:10, b:32},
+        yaxis: {...L.yaxis, title:{text:'USDT', standoff:8}}
+    }, CFG);
+}
+
+// ── PnL diario ───────────────────────────────────────────────────────────────
+function renderDailyPnl(divId, daily) {
+    if (!daily.length) {
+        Plotly.react(divId, [], {...L, margin:{l:55,r:12,t:10,b:32}}, CFG);
+        return;
+    }
+    const sorted = [...daily].sort((a,b) => a.date.localeCompare(b.date));
+    const xs = sorted.map(d => d.date);
+    const ys = sorted.map(d => d.pnl);
+    const colors = ys.map(v => v >= 0 ? '#3DFFA2' : '#FF6B6B');
+    Plotly.react(divId, [{
+        type: 'bar', x: xs, y: ys,
+        marker: {color: colors},
+        hovertemplate: '%{x}<br>PnL: %{y:.4f} USDT<extra></extra>'
+    }], {
+        ...L, margin:{l:55, r:12, t:10, b:32},
+        shapes: [{type:'line', x0:xs[0], x1:xs[xs.length-1], y0:0, y1:0,
+                  line:{color:'#333340', width:1, dash:'dot'}}]
+    }, CFG);
+}
+
+// ── Fetch y auto-refresh ──────────────────────────────────────────────────────
+function fetchData() {
+    fetch('./data.json?t=' + Date.now())
+        .then(r => r.json())
+        .then(d => {
+            updateUI(d);
+        })
+        .catch(e => {
+            console.warn('Error fetching data.json:', e);
+        });
+}
+
+fetchData();
+setInterval(fetchData, 60000); // refrescar cada 60s
+</script>
+</body>
+</html>

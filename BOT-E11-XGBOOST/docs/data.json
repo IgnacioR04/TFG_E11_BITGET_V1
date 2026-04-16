@@ -1,0 +1,19 @@
+{
+  "updated_at": null,
+  "btc_price": 0,
+  "runs": 0,
+  "live_mode": false,
+  "paused": false,
+  "pause_reason": null,
+  "live_balance": {"equity": 0, "available": 0, "unrealized_pl": 0},
+  "initial_equity": 0,
+  "total_pnl_usdt": 0,
+  "num_trades": 0,
+  "win_rate": 0,
+  "filters": {"signal": "HOLD"},
+  "last_prob": null,
+  "position": {"open": false},
+  "trades": [],
+  "equity_history": [],
+  "daily_pnl": []
+}

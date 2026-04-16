@@ -1,0 +1,29 @@
+{
+  "runs": 0,
+  "last_run": null,
+  "paused": false,
+  "pause_reason": null,
+  "consecutive_errors": 0,
+  "consecutive_losses": 0,
+  "initial_equity": 0,
+  "position": {
+    "open": false,
+    "side": null,
+    "entry_price": null,
+    "size_btc": null,
+    "size_usdt": null,
+    "pct_used": null,
+    "leverage": null,
+    "open_time": null,
+    "order_id": null
+  },
+  "last_signal": null,
+  "last_filters": {},
+  "trades": [],
+  "equity_history": [],
+  "live_balance": {
+    "available": 0,
+    "equity": 0,
+    "unrealized_pl": 0
+  }
+}
