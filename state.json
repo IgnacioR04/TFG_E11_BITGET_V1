@@ -1,9 +1,14 @@
 {
+<<<<<<< Updated upstream
   "runs": 52,
 <<<<<<< Updated upstream
   "last_run": "2026-04-16T22:57:39.225375+00:00",
 =======
   "last_run": "2026-04-16T22:58:09.945938+00:00",
+>>>>>>> Stashed changes
+=======
+  "runs": 53,
+  "last_run": "2026-04-16T22:58:41.638411+00:00",
 >>>>>>> Stashed changes
   "paused": false,
   "pause_reason": null,
@@ -29,9 +34,13 @@
     "ema200_slope": 1.0,
     "ema200_ok": true,
 <<<<<<< Updated upstream
+<<<<<<< Updated upstream
     "prob_e6": 0.5274,
 =======
     "prob_e6": 0.5201,
+>>>>>>> Stashed changes
+=======
+    "prob_e6": 0.523,
 >>>>>>> Stashed changes
     "in_dead_zone_e6": true,
     "signal": "HOLD",
@@ -301,6 +310,11 @@
 =======
       "ts": "2026-04-16T22:58:09.945938+00:00",
 >>>>>>> Stashed changes
+      "equity": 57.942,
+      "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-16T22:58:41.638411+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
     }
