@@ -1,11 +1,11 @@
 {
-  "runs": 0,
-  "last_run": null,
+  "runs": 1,
+  "last_run": "2026-04-16T21:49:27.432948+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
   "consecutive_losses": 0,
-  "initial_equity": 0,
+  "initial_equity": 57.942,
   "position": {
     "open": false,
     "side": null,
@@ -17,13 +17,30 @@
     "open_time": null,
     "order_id": null
   },
-  "last_signal": null,
-  "last_filters": {},
+  "last_signal": "HOLD",
+  "last_filters": {
+    "regime": "SIDEWAYS",
+    "vol_percentile": 0.5,
+    "vol_ok": true,
+    "ema200_slope": 1.0,
+    "ema200_ok": true,
+    "prob_e6": 0.5196,
+    "in_dead_zone_e6": true,
+    "signal": "HOLD",
+    "strategy": "NONE",
+    "fear_greed_raw": 23.0
+  },
   "trades": [],
-  "equity_history": [],
+  "equity_history": [
+    {
+      "ts": "2026-04-16T21:49:27.432948+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
+    }
+  ],
   "live_balance": {
-    "available": 0,
-    "equity": 0,
-    "unrealized_pl": 0
+    "available": 57.942,
+    "equity": 57.942,
+    "unrealized_pl": 0.0
   }
 }
