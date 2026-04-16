@@ -40,6 +40,12 @@ EMA_SLOPE_DAYS  = 5       # ventana pendiente EMA200
 ALLOW_SHORTS    = False   # shorts desactivados
 COMISION        = 0.0004  # 0.04% por lado
 
+# ── Parametros estrategia E6 (fallback) ──────────────────────────────────────
+E6_DELTA   = 0.30    # dead zone E6 — mas selectivo
+E6_PCT     = 0.40    # sizing fijo 40% del capital
+# E6 usa el mismo leverage, los mismos modelos y el mismo GARCH
+# pero opera en cualquier regimen (BULL, BEAR, SIDEWAYS) con LONG y SHORT
+
 PARAMS_BULL = {
     'n_estimators': 203,
     'max_depth': 3,
@@ -436,6 +442,7 @@ def publish_data(state, btc_price, filters, prob):
         "win_rate":          win_rate,
         "filters":           filters,
         "last_prob":         round(prob, 4) if prob is not None else None,
+        "active_strategy":   filters.get("strategy", "NONE"),
         "position":          state.get("position", {}),
         "trades":            trades[-50:],
         "equity_history":    state.get("equity_history", [])[-300:],
@@ -606,74 +613,132 @@ def run():
         return
 
     # ── Pipeline de filtros ────────────────────────────────────────────────────
-    signal = "HOLD"
-    prob   = None
-    filters = {}
+    signal   = "HOLD"
+    prob     = None
+    strategy = None   # "E11" o "E6" — cual estrategia genero la senal
+    filters  = {}
 
-    # Filtro 1: regimen HMM heuristico
-    regime = get_regime(df_btc)
-    filters["regime"] = regime
-    print(f"[E11] Filtro 1 — Regimen: {regime}")
-
-    # Filtro 2: volatilidad GARCH proxy
-    vol_pct = get_vol_percentile(df_btc)
-    filters["vol_percentile"] = round(vol_pct, 4)
-    vol_ok = vol_pct <= GARCH_VOL_UMBRAL
-    filters["vol_ok"] = vol_ok
-    print(f"[E11] Filtro 2 — Vol percentil: {vol_pct:.3f}  OK={vol_ok}")
-
-    # Filtro 3: tendencia EMA200
+    # Filtros comunes a ambas estrategias
+    regime    = get_regime(df_btc)
+    vol_pct   = get_vol_percentile(df_btc)
     ema_slope = get_ema200_slope(df_btc)
-    filters["ema200_slope"] = round(ema_slope, 2)
-    ema_ok = ema_slope > 0
-    filters["ema200_ok"] = ema_ok
-    print(f"[E11] Filtro 3 — EMA200 slope: {ema_slope:.2f}  OK={ema_ok}")
+    vol_ok    = vol_pct <= GARCH_VOL_UMBRAL
+    ema_ok    = ema_slope > 0
 
-    # Filtro 4: XGBoost — solo si estamos en BULL y los demas filtros pasan
+    filters["regime"]        = regime
+    filters["vol_percentile"]= round(vol_pct, 4)
+    filters["vol_ok"]        = vol_ok
+    filters["ema200_slope"]  = round(ema_slope, 2)
+    filters["ema200_ok"]     = ema_ok
+
+    print(f"[BOT] Regimen: {regime}  |  Vol: {vol_pct:.3f}  |  EMA200 slope: {ema_slope:.2f}")
+
+    # ── Intentar E11 primero ──────────────────────────────────────────────────
+    print("[BOT] Intentando E11 (BULL + EMA200 + Kelly)...")
     if regime == "BULL" and vol_ok and ema_ok:
-        model = load_model("models/xgb_bull.pkl")
-        if model is None:
+        model_bull = load_model("models/xgb_bull.pkl")
+        if model_bull is None:
             check_auto_pause(state, equity, "Modelo xgb_bull.pkl no cargable")
             save_state(state)
             return
-        prob = predict_proba(model, x)
-        filters["prob"] = round(prob, 4)
-        in_dead_zone = abs(prob - 0.5) <= DELTA
-        filters["in_dead_zone"] = in_dead_zone
-        print(f"[E11] Filtro 4 — XGBoost prob: {prob:.4f}  dead_zone={in_dead_zone}")
+        prob = predict_proba(model_bull, x)
+        filters["prob_e11"]      = round(prob, 4)
+        in_dead_zone_e11         = abs(prob - 0.5) <= DELTA
+        filters["in_dead_zone_e11"] = in_dead_zone_e11
+        print(f"[E11] XGBoost prob: {prob:.4f}  dead_zone={in_dead_zone_e11}")
 
-        if not in_dead_zone and prob > 0.5:
-            signal = "LONG"
-    elif regime != "BULL":
-        print("[E11] No BULL — solo opera en regimen BULL")
-    elif not vol_ok:
-        print(f"[E11] Volatilidad demasiado alta ({vol_pct:.3f} > {GARCH_VOL_UMBRAL})")
-    elif not ema_ok:
-        print(f"[E11] EMA200 bajista (slope={ema_slope:.2f}) — no operar LONG")
+        if not in_dead_zone_e11 and prob > 0.5:
+            signal   = "LONG"
+            strategy = "E11"
+            print("[E11] *** SENAL LONG — estrategia E11 activa ***")
+        else:
+            print("[E11] Sin senal — prob en dead zone o < 0.5")
+    else:
+        reasons = []
+        if regime != "BULL":   reasons.append(f"regimen={regime}")
+        if not vol_ok:         reasons.append(f"vol={vol_pct:.3f}>0.80")
+        if not ema_ok:         reasons.append(f"EMA200 slope={ema_slope:.0f}<=0")
+        print(f"[E11] Bloqueado por: {', '.join(reasons)}")
 
-    filters["signal"] = signal
-    filters["fear_greed_raw"] = round(fg_norm * 100, 1)
-    state["last_filters"] = filters
-    state["last_signal"]  = signal
+    # ── Si E11 no da senal, intentar E6 como fallback ─────────────────────────
+    if signal == "HOLD" and not state.get("position", {}).get("open"):
+        print("[BOT] E11 sin senal — intentando E6 (cualquier regimen, LONG+SHORT)...")
 
-    print(f"\n[E11] *** SENAL FINAL: {signal} ***\n")
+        # E6 solo requiere que la volatilidad sea aceptable
+        if vol_ok:
+            # Elegir submodelo segun regimen
+            if regime == "BULL":
+                model_e6 = load_model("models/xgb_bull.pkl")
+            else:
+                model_e6 = load_model("models/xgb_bear.pkl")
+
+            if model_e6 is None:
+                print("[E6] Modelo no cargable — HOLD")
+            else:
+                prob_e6 = predict_proba(model_e6, x)
+                filters["prob_e6"]       = round(prob_e6, 4)
+                in_dead_zone_e6          = abs(prob_e6 - 0.5) <= E6_DELTA
+                filters["in_dead_zone_e6"] = in_dead_zone_e6
+                print(f"[E6] XGBoost prob: {prob_e6:.4f}  dead_zone={in_dead_zone_e6}  regimen={regime}")
+
+                if not in_dead_zone_e6:
+                    if prob_e6 > 0.5:
+                        signal   = "LONG"
+                        strategy = "E6"
+                        prob     = prob_e6
+                        print("[E6] *** SENAL LONG — estrategia E6 fallback ***")
+                    elif prob_e6 < 0.5 and regime != "BULL":
+                        # E6 puede ir SHORT en regimenes no BULL
+                        signal   = "SHORT"
+                        strategy = "E6"
+                        prob     = prob_e6
+                        print("[E6] *** SENAL SHORT — estrategia E6 fallback ***")
+                    else:
+                        print("[E6] Sin senal")
+                else:
+                    print(f"[E6] Prob en dead zone (|{prob_e6:.3f} - 0.5| <= {E6_DELTA})")
+        else:
+            print(f"[E6] Volatilidad demasiado alta ({vol_pct:.3f}) — HOLD en ambas estrategias")
+
+    filters["signal"]        = signal
+    filters["strategy"]      = strategy if strategy else "NONE"
+    filters["fear_greed_raw"]= round(fg_norm * 100, 1)
+    state["last_filters"]    = filters
+    state["last_signal"]     = signal
+
+    print(f"\n[BOT] *** SENAL FINAL: {signal}  ESTRATEGIA: {strategy or 'NINGUNA'} ***\n")
 
     # ── Ejecutar trade ─────────────────────────────────────────────────────────
-    if signal == "LONG" and not state.get("position", {}).get("open"):
-        pct        = kelly_sizing(prob)
-        capital    = float(balance.get("available", equity))
-        size_usdt  = capital * pct
-        filters["pct_kelly"] = round(pct, 4)
-        print(f"[E11] Kelly sizing: pct={pct:.3f}  capital={capital:.2f}  size={size_usdt:.2f} USDT")
+    if signal in ("LONG", "SHORT") and not state.get("position", {}).get("open"):
+        capital   = float(balance.get("available", equity))
+        direction = "buy" if signal == "LONG" else "sell"
+
+        # Sizing segun estrategia
+        if strategy == "E11":
+            pct       = kelly_sizing(prob)
+            size_usdt = capital * pct
+            filters["pct_kelly"] = round(pct, 4)
+            print(f"[E11] Kelly sizing: pct={pct:.3f}  capital={capital:.2f}  size={size_usdt:.2f} USDT")
+        else:
+            # E6: sizing fijo 40%
+            pct       = E6_PCT
+            size_usdt = capital * pct
+            filters["pct_e6"] = round(pct, 4)
+            print(f"[E6] Sizing fijo: pct={pct:.2f}  capital={capital:.2f}  size={size_usdt:.2f} USDT")
+
+        # TP y SL segun direccion
+        if signal == "LONG":
+            tp_price = btc_price * 1.03
+            sl_price = btc_price * 0.98
+        else:
+            tp_price = btc_price * 0.97
+            sl_price = btc_price * 1.02
 
         if client and size_usdt >= 5:
             try:
-                # TP: +3% sobre precio, SL: -2% sobre precio
-                tp_price = btc_price * 1.03
-                sl_price = btc_price * 0.98
                 result = client.place_order(
                     symbol    = "BTCUSDT",
-                    direction = "buy",
+                    direction = direction,
                     size_usdt = size_usdt * LEVERAGE,
                     sl_price  = sl_price,
                     tp_price  = tp_price,
@@ -681,7 +746,8 @@ def run():
                 )
                 state["position"] = {
                     "open":        True,
-                    "side":        "LONG",
+                    "side":        signal,
+                    "strategy":    strategy,
                     "entry_price": result["entry_px"],
                     "size_btc":    result["qty"],
                     "size_usdt":   round(size_usdt, 4),
@@ -693,16 +759,17 @@ def run():
                     "tp_price":    round(tp_price, 2),
                 }
                 state["consecutive_errors"] = 0
-                print(f"[E11] LONG abierto: {result['qty']} BTC @ {result['entry_px']:.2f}  SL={sl_price:.0f}  TP={tp_price:.0f}")
+                print(f"[{strategy}] {signal} abierto: {result['qty']} BTC @ {result['entry_px']:.2f}  SL={sl_price:.0f}  TP={tp_price:.0f}")
             except Exception as e:
-                print(f"[E11] Error abriendo posicion: {e}")
+                print(f"[BOT] Error abriendo posicion: {e}")
                 state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
                 check_auto_pause(state, equity)
         elif not client:
-            print(f"[E11] Paper mode — LONG simulado: {size_usdt:.2f} USDT")
+            print(f"[{strategy}] Paper mode — {signal} simulado: {size_usdt:.2f} USDT")
             state["position"] = {
                 "open":        True,
-                "side":        "LONG",
+                "side":        signal,
+                "strategy":    strategy,
                 "entry_price": btc_price,
                 "size_btc":    round(size_usdt / btc_price, 6),
                 "size_usdt":   round(size_usdt, 4),
@@ -710,14 +777,14 @@ def run():
                 "leverage":    LEVERAGE,
                 "open_time":   now_utc,
                 "order_id":    "PAPER",
-                "sl_price":    round(btc_price * 0.98, 2),
-                "tp_price":    round(btc_price * 1.03, 2),
+                "sl_price":    round(sl_price, 2),
+                "tp_price":    round(tp_price, 2),
             }
         else:
-            print(f"[E11] size_usdt={size_usdt:.2f} demasiado pequeno (<5 USDT), no se ejecuta")
+            print(f"[BOT] size_usdt={size_usdt:.2f} demasiado pequeno (<5 USDT), no se ejecuta")
 
     elif signal == "HOLD" and state.get("position", {}).get("open"):
-        print("[E11] Senal HOLD con posicion abierta — mantener hasta SL/TP")
+        print("[BOT] Senal HOLD con posicion abierta — mantener hasta SL/TP")
 
     # ── Equity history ────────────────────────────────────────────────────────
     eq_entry = {
