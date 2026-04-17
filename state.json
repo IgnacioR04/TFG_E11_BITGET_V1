@@ -1,6 +1,6 @@
 {
-  "runs": 323,
-  "last_run": "2026-04-17T20:58:53.750974+00:00",
+  "runs": 324,
+  "last_run": "2026-04-17T20:59:45.691520+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.4767,
     "vol_ok": true,
-    "ema200_slope": -407.382636,
+    "ema200_slope": -407.479496,
     "ema200_ok": false,
-    "prob_e11": 0.5665,
-    "prob_e6": 0.5665,
+    "prob_e11": 0.5681,
+    "prob_e6": 0.5681,
     "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -1648,6 +1648,11 @@
     },
     {
       "ts": "2026-04-17T20:58:53.750974+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-17T20:59:45.691520+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
     }
@@ -3575,8 +3580,8 @@
       "open": 77463.88,
       "high": 77648.45,
       "low": 77188.66,
-      "close": 77390.01,
-      "volume": 536301568.0
+      "close": 77380.27,
+      "volume": 538726400.0
     }
   ],
   "prob_history": [
@@ -6161,6 +6166,14 @@
       "regime": "BEAR",
       "prob_e11": 0.5665,
       "prob_e6": 0.5665,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-17T20:59:45.691520+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.5681,
+      "prob_e6": 0.5681,
       "signal": "HOLD",
       "strategy": "NONE"
     }
