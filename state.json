@@ -1,6 +1,6 @@
 {
-  "runs": 157,
-  "last_run": "2026-04-17T17:59:47.328781+00:00",
+  "runs": 158,
+  "last_run": "2026-04-17T18:01:02.077532+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.4791,
     "vol_ok": true,
-    "ema200_slope": -405.626184,
+    "ema200_slope": -405.94397,
     "ema200_ok": false,
-    "prob_e11": 0.3628,
-    "prob_e6": 0.3628,
+    "prob_e11": 0.4115,
+    "prob_e6": 0.4115,
     "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -820,6 +820,11 @@
       "ts": "2026-04-17T17:59:47.328781+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-17T18:01:02.077532+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -828,14 +833,6 @@
     "unrealized_pl": 0.0
   },
   "candles_1h": [
-    {
-      "ts": "2026-04-07T18:00:00+00:00",
-      "open": 68692.16,
-      "high": 68745.52,
-      "low": 68348.31,
-      "close": 68426.27,
-      "volume": 93362176.0
-    },
     {
       "ts": "2026-04-07T19:00:00+00:00",
       "open": 68428.25,
@@ -2745,8 +2742,16 @@
       "open": 77898.76,
       "high": 77955.01,
       "low": 77152.5,
-      "close": 77566.53,
+      "close": 77563.51,
       "volume": 1474863104.0
+    },
+    {
+      "ts": "2026-04-17T18:00:00+00:00",
+      "open": 77534.59,
+      "high": 77534.59,
+      "low": 77534.59,
+      "close": 77534.59,
+      "volume": 0.0
     }
   ],
   "prob_history": [
@@ -4005,6 +4010,14 @@
       "prob_e6": 0.3628,
       "signal": "HOLD",
       "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-17T18:01:02.077532+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.4115,
+      "prob_e6": 0.4115,
+      "signal": "HOLD",
+      "strategy": "NONE"
     }
   ],
   "regime_history": [
@@ -4018,6 +4031,10 @@
     },
     {
       "ts": "2026-04-17T17:00:00+00:00",
+      "regime": "BEAR"
+    },
+    {
+      "ts": "2026-04-17T18:00:00+00:00",
       "regime": "BEAR"
     }
   ]
