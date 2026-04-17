@@ -1,6 +1,6 @@
 {
-  "runs": 61,
-  "last_run": "2026-04-17T08:02:46.717056+00:00",
+  "runs": 62,
+  "last_run": "2026-04-17T08:03:41.357710+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -24,7 +24,7 @@
     "vol_ok": true,
     "ema200_slope": 1.0,
     "ema200_ok": true,
-    "prob_e6": 0.5034,
+    "prob_e6": 0.4911,
     "in_dead_zone_e6": true,
     "signal": "HOLD",
     "strategy": "NONE",
@@ -334,6 +334,11 @@
     },
     {
       "ts": "2026-04-17T08:02:46.717056+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-17T08:03:41.357710+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
     }
