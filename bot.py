@@ -452,6 +452,7 @@ def publish_data(state, btc_price, filters, prob):
         "trades":            trades[-50:],
         "equity_history":    state.get("equity_history", [])[-300:],
         "prob_history":      state.get("prob_history", [])[-300:],
+        "regime_history":    state.get("regime_history", [])[-1440:],
         "candles_1h":        state.get("candles_1h", []),
         "daily_pnl":         [{"date": k, "pnl": v} for k, v in sorted(daily_pnl.items())],
     }
@@ -794,6 +795,16 @@ def run():
     # Limitar a 500 entradas (~8h a 1 min)
     if len(state["prob_history"]) > 500:
         state["prob_history"] = state["prob_history"][-500:]
+
+    # Historial de regimen HMM por vela 1h (para bandas de regimen en dashboard).
+    # Solo anadimos una entrada cuando cambia la vela; varias ejecuciones del bot
+    # dentro de la misma vela no duplican datos.
+    rh = state.setdefault("regime_history", [])
+    if not rh or rh[-1].get("ts") != last_candle_ts:
+        rh.append({"ts": last_candle_ts, "regime": regime})
+        # Mantener ~60 dias a 1h = 1440 velas
+        if len(rh) > 1440:
+            state["regime_history"] = rh[-1440:]
 
     print(f"\n[BOT] *** SENAL FINAL: {signal}  ESTRATEGIA: {strategy or 'NINGUNA'} ***\n")
 
