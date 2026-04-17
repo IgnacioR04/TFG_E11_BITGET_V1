@@ -30,11 +30,13 @@ jobs:
         run: |
           pip install --quiet \
             numpy \
-            pandas \
+            "pandas<2.0" \
             yfinance \
             hmmlearn \
             xgboost \
-            scikit-learn
+            scikit-learn \
+            pandas_ta \
+            requests
 
       - name: Generar historical_trades.json
         run: python generar_historico.py
