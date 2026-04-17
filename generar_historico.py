@@ -393,20 +393,79 @@ def backtest_e11(df, capital_ini):
 # ═════════════════════════════════════════════════════════════════════════════
 # 6. Ensamblar output
 # ═════════════════════════════════════════════════════════════════════════════
+def _equity_curve_from_trades(df_tr, capital_ini):
+    if len(df_tr) == 0:
+        return [capital_ini]
+    vals = [capital_ini]
+    vals.extend([float(x) for x in df_tr["capital"].tolist()])
+    return vals
+
+
+def _max_drawdown_pct(equity_values):
+    arr = np.asarray(equity_values, dtype=float)
+    if arr.size == 0:
+        return 0.0
+    peak = np.maximum.accumulate(arr)
+    dd = (arr - peak) / np.where(peak == 0, 1.0, peak)
+    return float(dd.min() * 100.0)
+
+
 def resumen(name, tr, capital_ini):
     if len(tr) == 0:
-        return {"name": name, "n": 0, "pnl": 0, "wr": 0, "avg": 0,
-                "best": 0, "worst": 0, "final_capital": capital_ini}
+        return {
+            "name": name,
+            "trades": 0,
+            "win_rate": 0.0,
+            "total_pnl_usdt": 0.0,
+            "avg_pnl_usdt": 0.0,
+            "best_pnl_usdt": 0.0,
+            "worst_pnl_usdt": 0.0,
+            "final_capital": float(capital_ini),
+            "ret_total_pct": 0.0,
+            "avg_return_on_margin_pct": 0.0,
+            "max_drawdown_pct": 0.0,
+            "long_trades": 0,
+            "short_trades": 0,
+            "avg_size_pct": 0.0,
+            "size_pct_min": 0.0,
+            "size_pct_max": 0.0,
+        }
+
     wins = tr[tr["pnl"] > 0]
+    total_pnl = float(tr["pnl"].sum())
+    final_cap = float(tr["capital"].iloc[-1])
+    ret_total_pct = (final_cap / capital_ini - 1.0) * 100.0
+    long_trades = int((tr["dir"] == "LONG").sum()) if "dir" in tr.columns else 0
+    short_trades = int((tr["dir"] == "SHORT").sum()) if "dir" in tr.columns else 0
+
+    size_col = "pct" if "pct" in tr.columns else None
+    if size_col is None and "size" in tr.columns:
+        size_pct_series = tr["size"] / tr["capital"].shift(1).fillna(capital_ini)
+    elif size_col is not None:
+        size_pct_series = tr[size_col]
+    else:
+        size_pct_series = pd.Series([0.0] * len(tr), index=tr.index)
+
+    margin_ret_pct = (tr["pnl"] / tr["size"].replace(0, np.nan) * 100.0).replace([np.inf, -np.inf], np.nan).fillna(0.0)
+    eq_vals = _equity_curve_from_trades(tr, capital_ini)
+
     return {
         "name": name,
-        "n": int(len(tr)),
-        "pnl": float(tr["pnl"].sum()),
-        "wr": float(len(wins) / len(tr) * 100),
-        "avg": float(tr["pnl"].mean()),
-        "best": float(tr["pnl"].max()),
-        "worst": float(tr["pnl"].min()),
-        "final_capital": float(capital_ini + tr["pnl"].sum()),
+        "trades": int(len(tr)),
+        "win_rate": float(len(wins) / len(tr) * 100.0),
+        "total_pnl_usdt": total_pnl,
+        "avg_pnl_usdt": float(tr["pnl"].mean()),
+        "best_pnl_usdt": float(tr["pnl"].max()),
+        "worst_pnl_usdt": float(tr["pnl"].min()),
+        "final_capital": final_cap,
+        "ret_total_pct": float(ret_total_pct),
+        "avg_return_on_margin_pct": float(margin_ret_pct.mean()),
+        "max_drawdown_pct": _max_drawdown_pct(eq_vals),
+        "long_trades": long_trades,
+        "short_trades": short_trades,
+        "avg_size_pct": float(size_pct_series.mean() * 100.0),
+        "size_pct_min": float(size_pct_series.min() * 100.0),
+        "size_pct_max": float(size_pct_series.max() * 100.0),
     }
 
 
@@ -435,82 +494,107 @@ def calcular_regime_spans(df_test):
 def trades_to_json(df_tr, strategy):
     out = []
     for _, t in df_tr.iterrows():
-        out.append({
+        side = str(t["dir"])
+        size_pct = float(t["pct"] * 100.0) if "pct" in t and not pd.isna(t.get("pct", np.nan)) else None
+        pnl_usdt = float(t["pnl"])
+        margin = float(t["size"]) if float(t.get("size", 0.0)) != 0 else np.nan
+        pnl_pct = float(pnl_usdt / margin * 100.0) if pd.notna(margin) else 0.0
+        row = {
             "strategy": strategy,
-            "dir": str(t["dir"]),
-            "open_ts":  pd.Timestamp(t["open_ts"]).isoformat(),
+            "side": side,
+            "dir": side,
+            "open_time": pd.Timestamp(t["open_ts"]).isoformat(),
+            "close_time": pd.Timestamp(t["close_ts"]).isoformat(),
+            "open_ts": pd.Timestamp(t["open_ts"]).isoformat(),
             "close_ts": pd.Timestamp(t["close_ts"]).isoformat(),
+            "entry_px": float(t["entry"]),
+            "exit_px": float(t["exit"]),
             "entry": float(t["entry"]),
-            "exit":  float(t["exit"]),
-            "prob":  float(t["prob"]),
-            "pnl":   float(t["pnl"]),
-        })
+            "exit": float(t["exit"]),
+            "prob": float(t["prob"]),
+            "pnl_usdt": pnl_usdt,
+            "pnl": pnl_usdt,
+            "pnl_pct": pnl_pct,
+            "size_usdt": float(t["size"]),
+            "size": float(t["size"]),
+            "size_pct": size_pct,
+            "pct": float(t["pct"]) if "pct" in t and not pd.isna(t.get("pct", np.nan)) else None,
+            "apal": E11_APAL if strategy == "E11" else E6_APAL,
+        }
+        out.append(row)
     return out
 
 
 def main():
     OUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-    # Cargar XGBoost
     print("[MAIN] Cargando modelos XGBoost...")
-    with open(MODELS_DIR / "xgb_bull.pkl", "rb") as f: xgb_bull = pickle.load(f)
-    with open(MODELS_DIR / "xgb_bear.pkl", "rb") as f: xgb_bear = pickle.load(f)
+    with open(MODELS_DIR / "xgb_bull.pkl", "rb") as f:
+        xgb_bull = pickle.load(f)
+    with open(MODELS_DIR / "xgb_bear.pkl", "rb") as f:
+        xgb_bear = pickle.load(f)
     print(f"[MAIN] bull={xgb_bull.n_features_in_}f | bear={xgb_bear.n_features_in_}f")
 
-    # Descargar
     df_btc, df_eth, df_gold, df_dxy, fg = descargar_todo()
     if df_btc.empty:
         print("[MAIN] ERROR: BTC vacio. Abortando.")
         return
 
-    # Features
     df = construir_features(df_btc, df_eth, df_gold, df_dxy, fg)
-
-    # HMM + vol_percentile + EMA slope
     df, df_daily = regimen_hmm(df, df_btc)
-
-    # Test set + probabilidades
     df_test = generar_test_y_probs(df, xgb_bull, xgb_bear)
 
-    # Backtests
     print("[MAIN] Simulando E6...")
     tr_e6 = backtest_e6(df_test, CAPITAL_INI)
     print("[MAIN] Simulando E11...")
     tr_e11 = backtest_e11(df_test, CAPITAL_INI)
     print(f"[MAIN] E6: {len(tr_e6)} trades | E11: {len(tr_e11)} trades")
 
-    # Metricas
+    sum_e6 = resumen("E6", tr_e6, CAPITAL_INI)
+    sum_e11 = resumen("E11", tr_e11, CAPITAL_INI)
+    test_start = df_test.index[0].isoformat()
+    test_end = df_test.index[-1].isoformat()
+
     meta = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "test_start": df_test.index[0].isoformat(),
-        "test_end":   df_test.index[-1].isoformat(),
+        "date_range": f"{str(df_test.index[0].date())} / {str(df_test.index[-1].date())}",
+        "test_start": test_start,
+        "test_end": test_end,
         "test_candles": int(len(df_test)),
+        "rows": int(len(df_test)),
+        "source": "yfinance 720d 1h",
         "capital_inicial": CAPITAL_INI,
-        "e6":  resumen("E6",  tr_e6,  CAPITAL_INI),
-        "e11": resumen("E11", tr_e11, CAPITAL_INI),
+        "e6": sum_e6,
+        "e11": sum_e11,
+        "e6_trades": int(sum_e6["trades"]),
+        "e11_trades": int(sum_e11["trades"]),
     }
     print(json.dumps(meta, indent=2, default=str))
 
-    # Regime spans (solo para el periodo test, para pintar bandas)
     regime_spans = calcular_regime_spans(df_test)
 
-    # Candles
     candles = []
     for ts, row in df_test.iterrows():
         candles.append({
+            "t": ts.isoformat(),
             "ts": ts.isoformat(),
-            "open":  round(float(row["open"]),  2),
-            "high":  round(float(row["high"]),  2),
-            "low":   round(float(row["low"]),   2),
+            "o": round(float(row["open"]), 2),
+            "h": round(float(row["high"]), 2),
+            "l": round(float(row["low"]), 2),
+            "c": round(float(row["close"]), 2),
+            "open": round(float(row["open"]), 2),
+            "high": round(float(row["high"]), 2),
+            "low": round(float(row["low"]), 2),
             "close": round(float(row["close"]), 2),
             "regime": str(row["regime"]),
         })
 
     output = {
+        "generated_at": meta["generated_at"],
         "meta": meta,
         "candles": candles,
         "regime_spans": regime_spans,
-        "trades_e6":  trades_to_json(tr_e6,  "E6"),
+        "trades_e6": trades_to_json(tr_e6, "E6"),
         "trades_e11": trades_to_json(tr_e11, "E11"),
     }
 
