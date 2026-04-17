@@ -458,7 +458,7 @@ footer a:hover{color:var(--text);}
         <span class="strat-badge">E11 · Primary</span>
       </div>
       <div class="strat-t">Primary · only LONG</div>
-      <div class="strat-sub">BULL + Vol≤0.80 + EMA200↑ + prob≥0.70 · Kelly 20-55%</div>
+      <div class="strat-sub">Vol≤0.80 + EMA200↑ + prob fuera de dead zone · Kelly 20-55%</div>
       <div class="strat-stats">
         <div>
           <div class="strat-stat-l">Trades</div>
@@ -611,7 +611,7 @@ footer a:hover{color:var(--text);}
         <span class="strat-badge">E11 · Primary</span>
       </div>
       <div class="strat-t">Solo LONG · Kelly</div>
-      <div class="strat-sub">delta=0.20 · lev 5x · 20-55% · activa si BULL + Vol OK + EMA200↑</div>
+      <div class="strat-sub">delta=0.20 · lev 5x · 20-55% · activa si Vol OK + macro_up</div>
       <div class="strat-stats">
         <div>
           <div class="strat-stat-l">Trades</div>
@@ -849,7 +849,7 @@ footer a:hover{color:var(--text);}
 
   <div class="pipe-row">
     <div class="pipe-h">
-      <span class="strat-badge" style="background:var(--blue-soft);color:var(--blue);">E6 Pipeline (fallback)</span>
+      <span class="strat-badge" style="background:var(--blue-soft);color:var(--blue);">E6 Pipeline</span>
     </div>
     <div class="pipe-flow">
       <div class="pipe-node" id="pp-e6-n1"><span class="pipe-node-l">E11 HOLD</span><span class="pipe-node-v" id="pp-e6-hold">—</span></div>
@@ -913,7 +913,7 @@ footer a:hover{color:var(--text);}
       <div class="cc-h"><div class="cc-t">Estado E11</div></div>
       <div style="padding:10px 18px 16px;">
         <div class="est-grid">
-          <div class="est-row"><span class="est-lab">Regimen BULL</span><span class="est-val" id="e-e11-1">—</span></div>
+          <div class="est-row"><span class="est-lab">Submodelo HMM</span><span class="est-val" id="e-e11-1">—</span></div>
           <div class="est-row"><span class="est-lab">Vol OK (≤0.80)</span><span class="est-val" id="e-e11-2">—</span></div>
           <div class="est-row"><span class="est-lab">EMA200 slope &gt;0</span><span class="est-val" id="e-e11-3">—</span></div>
           <div class="est-row"><span class="est-lab">XGBoost prob</span><span class="est-val" id="e-e11-4">—</span></div>
@@ -924,7 +924,7 @@ footer a:hover{color:var(--text);}
       </div>
     </div>
     <div class="cc">
-      <div class="cc-h"><div class="cc-t">Estado E6 (fallback)</div></div>
+      <div class="cc-h"><div class="cc-t">Estado E6</div></div>
       <div style="padding:10px 18px 16px;">
         <div class="est-grid">
           <div class="est-row"><span class="est-lab">Vol OK (≤0.80)</span><span class="est-val" id="e-e6-1">—</span></div>
@@ -2138,14 +2138,16 @@ function renderPipeline(){
   setTxt('pp-fg-l', fg!==null ? fgLabel(fg) : 'alternative.me');
 
   // E11 nodes
-  const regBull = (p.regime||'').toUpperCase()==='BULL';
+  const regimeNow = (p.regime||'').toUpperCase();
+  const regBull = regimeNow==='BULL';
+  const modelName = regBull ? 'xgb_bull' : 'xgb_bear';
   const volOk = p.vol_pct!==undefined ? p.vol_pct<=0.80 : false;
   const emaUp = p.ema200_slope>0;
   const probE11 = p.prob_e11;
   const eme11 = document.getElementById('pp-e11-reg');
   if(eme11){
-    eme11.textContent = (p.regime||'—').toUpperCase();
-    document.getElementById('pp-e11-n1').className = 'pipe-node ' + (regBull?'ok':'ko');
+    eme11.textContent = modelName+' · '+(regimeNow||'—');
+    document.getElementById('pp-e11-n1').className = 'pipe-node ok';
   }
   setTxt('pp-e11-vol', p.vol_pct!==undefined ? fmt(p.vol_pct,3) : '—');
   document.getElementById('pp-e11-n2').className = 'pipe-node ' + (volOk?'ok':'ko');
@@ -2180,8 +2182,8 @@ function renderPipeline(){
   const cnfE6S = probE6!==null && probE6!==undefined && probE6<0.5 ? Math.min(Math.abs(probE6-0.5)/DELTA_E6*100, 100) : 0;
 
   document.getElementById('cnf-e11').style.width = cnfE11+'%';
-  document.getElementById('cnf-e11').className = 'cnf-fill '+(regBull?'e11':'block');
-  document.getElementById('cnf-e11-v').textContent = regBull ? fmt(cnfE11,0)+'%' : 'bloqueado · '+(p.regime||'—');
+  document.getElementById('cnf-e11').className = 'cnf-fill e11';
+  document.getElementById('cnf-e11-v').textContent = fmt(cnfE11,0)+'% · δ=0.20';
 
   document.getElementById('cnf-e6-l').style.width = cnfE6L+'%';
   document.getElementById('cnf-e6-l-v').textContent = fmt(cnfE6L,0)+'% · δ=0.30';
@@ -2189,8 +2191,8 @@ function renderPipeline(){
   document.getElementById('cnf-e6-s-v').textContent = fmt(cnfE6S,0)+'% · δ=0.30';
 
   // Estado boxes
-  setTxt('e-e11-1', regBull ? '✓ BULL' : '✗ '+(p.regime||'—'));
-  document.getElementById('e-e11-1').style.color = regBull?COLORS.green:COLORS.red;
+  setTxt('e-e11-1', modelName+' · '+(regimeNow||'—'));
+  document.getElementById('e-e11-1').style.color = COLORS.green;
   setTxt('e-e11-2', p.vol_pct!==undefined ? (volOk?'✓ ':'✗ ')+fmt(p.vol_pct,3) : '—');
   document.getElementById('e-e11-2').style.color = volOk?COLORS.green:COLORS.red;
   setTxt('e-e11-3', p.ema200_slope!==undefined ? (emaUp?'✓ slope=+1':'✗ slope=-1') : '—');
@@ -2210,8 +2212,8 @@ function renderPipeline(){
   setTxt('e-e6-3', probE6!==null && probE6!==undefined ? (inDZ?'Dentro':'Fuera') : '—');
   let dir = '—';
   if(probE6!==null && probE6!==undefined){
-    if(probE6>=0.80) dir='LONG';
-    else if(probE6<=0.20 && !regBull) dir='SHORT';
+    if(probE6 > 0.5 && Math.abs(probE6-0.5) > 0.30) dir='LONG';
+    else if(probE6 < 0.5 && Math.abs(probE6-0.5) > 0.30) dir='SHORT';
   }
   setTxt('e-e6-4', dir);
   const sigE6El = document.getElementById('e-e6-6');
