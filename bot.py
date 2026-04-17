@@ -451,6 +451,8 @@ def publish_data(state, btc_price, filters, prob):
         "position":          state.get("position", {}),
         "trades":            trades[-50:],
         "equity_history":    state.get("equity_history", [])[-300:],
+        "prob_history":      state.get("prob_history", [])[-300:],
+        "candles_1h":        state.get("candles_1h", []),
         "daily_pnl":         [{"date": k, "pnl": v} for k, v in sorted(daily_pnl.items())],
     }
 
@@ -611,6 +613,18 @@ def run():
     last_candle_ts = df_btc.index[-1].isoformat()
     print(f"[E11] BTC velas: {len(df_btc)}  precio cierre: {btc_price:.2f}  vela actual: {last_candle_ts}")
 
+    # Snapshot de las ultimas 240 velas 1h (10 dias) para el grafico del dashboard
+    candles_snapshot = []
+    for ts_c, row_c in df_btc.tail(240).iterrows():
+        candles_snapshot.append({
+            "ts":    ts_c.isoformat(),
+            "open":  round(float(row_c["open"]), 2),
+            "high":  round(float(row_c["high"]), 2),
+            "low":   round(float(row_c["low"]), 2),
+            "close": round(float(row_c["close"]), 2),
+        })
+    state["candles_1h"] = candles_snapshot
+
     # ── Verificar si hay posicion abierta que cerrar ──────────────────────────
     # Regla del backtest: cerrar en el close de la vela SIGUIENTE a la de apertura.
     # Es decir, cerramos en cuanto last_candle_ts != open_candle_ts.
@@ -764,6 +778,22 @@ def run():
     filters["fear_greed_raw"]= round(fg_norm * 100, 1)
     state["last_filters"]    = filters
     state["last_signal"]     = signal
+
+    # Historial de probabilidades (para grafico de confianza en dashboard)
+    prob_e11 = filters.get("prob_e11")
+    prob_e6  = filters.get("prob_e6")
+    prob_entry = {
+        "ts":       now_utc,
+        "regime":   regime,
+        "prob_e11": round(prob_e11, 4) if prob_e11 is not None else None,
+        "prob_e6":  round(prob_e6, 4)  if prob_e6  is not None else None,
+        "signal":   signal,
+        "strategy": strategy if strategy else "NONE",
+    }
+    state.setdefault("prob_history", []).append(prob_entry)
+    # Limitar a 500 entradas (~8h a 1 min)
+    if len(state["prob_history"]) > 500:
+        state["prob_history"] = state["prob_history"][-500:]
 
     print(f"\n[BOT] *** SENAL FINAL: {signal}  ESTRATEGIA: {strategy or 'NINGUNA'} ***\n")
 
