@@ -1269,6 +1269,39 @@ function normalizeBot(raw){
   };
 }
 
+function normalizeHist(raw){
+  if(!raw) return null;
+  const meta = raw.meta || {};
+  const normTrades = (arr=[]) => arr.map(t=>({
+    strategy: t.strategy || '',
+    side: t.side || t.dir || 'LONG',
+    dir: t.dir || t.side || 'LONG',
+    open_time: t.open_time || t.open_ts || null,
+    close_time: t.close_time || t.close_ts || null,
+    entry_px: num(t.entry_px, t.entry),
+    exit_px: num(t.exit_px, t.exit),
+    pnl_pct: num(t.pnl_pct, 0),
+    pnl_usdt: num(t.pnl_usdt, t.pnl),
+    size_pct: num(t.size_pct, t.pct!=null ? t.pct*100 : null),
+    prob: num(t.prob, null),
+  }));
+  const candles = (raw.candles || []).map(c=>({
+    t: c.t || c.ts,
+    o: num(c.o, c.open),
+    h: num(c.h, c.high),
+    l: num(c.l, c.low),
+    c: num(c.c, c.close),
+    regime: c.regime || null,
+  })).filter(c=>c.t);
+  return {
+    ...raw,
+    meta,
+    candles,
+    trades_e11: normTrades(raw.trades_e11 || []),
+    trades_e6: normTrades(raw.trades_e6 || []),
+  };
+}
+
 async function loadBot(){
   try{
     const r = await fetch('data.json?v='+Date.now());
@@ -1285,7 +1318,7 @@ async function loadHist(){
   try{
     const r = await fetch('historical_trades.json?v='+Date.now());
     if(!r.ok) throw new Error('no historical_trades.json');
-    STATE.hist = await r.json();
+    STATE.hist = normalizeHist(await r.json());
   }catch(e){
     console.warn('historical_trades.json not available',e);
     STATE.hist = null;
@@ -1722,12 +1755,12 @@ function renderMarket(){
   // Open positions
   openTrades.forEach(t=>{
     if(!t.open_time||!t.entry_px) return;
-    const ot = new Date(t.open_time).getTime();
+    const ot = new Date(t.open_time || t.open_ts).getTime();
     if(ot<tStart||ot>tEnd) return;
     const col = tradeColor(t.strategy, t.side);
     traces.push({
       type:'scatter', mode:'markers',
-      x:[t.open_time], y:[t.entry_px],
+      x:[t.open_time || t.open_ts], y:[t.entry_px],
       marker:{
         symbol: t.side==='LONG'?'triangle-up':'triangle-down',
         size:16, color:col,
@@ -1833,28 +1866,42 @@ function renderStrats(){
 
   if(statusEl){
     const meta = h.meta || {};
-    statusEl.textContent = meta.date_range ? ('Test: '+meta.date_range) : 'Datos cargados';
+    statusEl.textContent = meta.date_range ? ('Test: '+meta.date_range) : ((meta.test_start && meta.test_end) ? ('Test: '+String(meta.test_start).slice(0,10)+' / '+String(meta.test_end).slice(0,10)) : 'Datos cargados');
   }
 
   const e11 = h.trades_e11 || [];
   const e6 = h.trades_e6 || [];
+  const m11 = (h.meta && h.meta.e11) ? h.meta.e11 : null;
+  const m6 = (h.meta && h.meta.e6) ? h.meta.e6 : null;
 
-  // Stats E11
-  setTxt('hs-e11-n', e11.length);
-  if(e11.length){
-    const wins = e11.filter(t=>(t.pnl_pct||0)>0).length;
+  setTxt('hs-e11-n', m11 && m11.trades!=null ? m11.trades : e11.length);
+  if(m11){
+    setTxt('hs-e11-wr', fmt(num(m11.win_rate,0),1)+'%');
+    setTxt('hs-e11-pnl', fmtPct(num(m11.ret_total_pct,0),1));
+    setTxt('hs-e11-avg', fmtPct(num(m11.avg_return_on_margin_pct,0),2));
+  }else if(e11.length){
+    const wins = e11.filter(t=>(t.pnl_usdt||0)>0).length;
+    const totalPnl = e11.reduce((a,t)=>a+(t.pnl_usdt||0),0);
+    const capitalIni = num(h.meta?.capital_inicial, 0);
+    const retPct = capitalIni ? ((capitalIni + totalPnl)/capitalIni - 1)*100 : 0;
     setTxt('hs-e11-wr', fmt(wins/e11.length*100,1)+'%');
-    const totalPnl = e11.reduce((a,t)=>a+(t.pnl_pct||0),0);
-    setTxt('hs-e11-pnl', fmtPct(totalPnl,1));
-    setTxt('hs-e11-avg', fmtPct(totalPnl/e11.length,2));
+    setTxt('hs-e11-pnl', fmtPct(retPct,1));
+    setTxt('hs-e11-avg', fmt(totalPnl/e11.length,2)+' USDT');
   }
-  setTxt('hs-e6-n', e6.length);
-  if(e6.length){
-    const wins = e6.filter(t=>(t.pnl_pct||0)>0).length;
+
+  setTxt('hs-e6-n', m6 && m6.trades!=null ? m6.trades : e6.length);
+  if(m6){
+    setTxt('hs-e6-wr', fmt(num(m6.win_rate,0),1)+'%');
+    setTxt('hs-e6-pnl', fmtPct(num(m6.ret_total_pct,0),1));
+    setTxt('hs-e6-avg', fmtPct(num(m6.avg_return_on_margin_pct,0),2));
+  }else if(e6.length){
+    const wins = e6.filter(t=>(t.pnl_usdt||0)>0).length;
+    const totalPnl = e6.reduce((a,t)=>a+(t.pnl_usdt||0),0);
+    const capitalIni = num(h.meta?.capital_inicial, 0);
+    const retPct = capitalIni ? ((capitalIni + totalPnl)/capitalIni - 1)*100 : 0;
     setTxt('hs-e6-wr', fmt(wins/e6.length*100,1)+'%');
-    const totalPnl = e6.reduce((a,t)=>a+(t.pnl_pct||0),0);
-    setTxt('hs-e6-pnl', fmtPct(totalPnl,1));
-    setTxt('hs-e6-avg', fmtPct(totalPnl/e6.length,2));
+    setTxt('hs-e6-pnl', fmtPct(retPct,1));
+    setTxt('hs-e6-avg', fmt(totalPnl/e6.length,2)+' USDT');
   }
 
   renderHistChart('e11', h, e11);
@@ -1918,33 +1965,33 @@ function renderHistChart(tag, h, trades){
 
   // Trade markers
   const tradesF = trades.filter(t=>{
-    const ot = new Date(t.open_time).getTime();
+    const ot = new Date(t.open_time || t.open_ts).getTime();
     return ot>=tStart && ot<=tEnd;
   });
   tradesF.forEach(t=>{
     const col = tradeColor(tag.toUpperCase(), t.side);
     traces.push({
       type:'scatter', mode:'markers',
-      x:[t.open_time], y:[t.entry_px],
+      x:[t.open_time || t.open_ts], y:[t.entry_px],
       marker:{
         symbol: t.side==='LONG'?'triangle-up':'triangle-down',
         size:11, color:col,
         line:{color:'#fff',width:1},
       },
-      hovertemplate: `${tag.toUpperCase()} ${t.side}<br>Entry: ${fmt(t.entry_px,0)}<br>Exit: ${fmt(t.exit_px,0)}<br>PnL: ${fmtPct(t.pnl_pct||0,2)}<extra></extra>`,
+      hovertemplate: `${tag.toUpperCase()} ${t.side}<br>Entry: ${fmt(t.entry_px,0)}<br>Exit: ${fmt(t.exit_px,0)}<br>PnL: ${fmt(t.pnl_usdt||0,2)} USDT<br>Ret: ${fmtPct(t.pnl_pct||0,2)}<extra></extra>`,
       showlegend:false,
     });
-    if(t.close_time && t.exit_px){
+    if((t.close_time || t.close_ts) && t.exit_px!=null){
       traces.push({
         type:'scatter', mode:'markers',
-        x:[t.close_time], y:[t.exit_px],
+        x:[t.close_time || t.close_ts], y:[t.exit_px],
         marker:{symbol:'circle', size:5, color:(t.pnl_pct>=0?COLORS.green:COLORS.red), opacity:0.6},
         showlegend:false, hoverinfo:'skip',
       });
       // Connecting line
       traces.push({
         type:'scatter', mode:'lines',
-        x:[t.open_time,t.close_time], y:[t.entry_px,t.exit_px],
+        x:[t.open_time || t.open_ts, t.close_time || t.close_ts], y:[t.entry_px,t.exit_px],
         line:{color:col,width:1,dash:'dot'},
         opacity:0.4, showlegend:false, hoverinfo:'skip',
       });
