@@ -387,15 +387,25 @@
 
 <!-- ===== E11 vs E6 ===== -->
 <div id="p-estrategias" class="pane">
+    <!-- Banner modo histórico -->
+    <div style="background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;margin-bottom:14px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px">
+        <div style="font-size:11px;color:var(--text2)">
+            <span style="color:var(--neon);font-weight:600">📊 Backtest histórico</span> ·
+            Trades que <b>habrían</b> ejecutado E11 y E6 sobre el test set del modelo.
+            <span id="hist-period" style="color:var(--text3)">—</span>
+        </div>
+        <div style="font-size:9px;color:var(--text3)" id="hist-generated">Sin datos cargados</div>
+    </div>
+
     <div class="g2" style="margin-bottom:14px">
         <!-- E11 card -->
         <div class="strat-card e11" style="padding:18px">
             <div class="strat-title e11" style="font-size:12px;margin-bottom:14px">⚡ Estrategia E11 — Primary</div>
             <div class="g2" style="gap:8px;margin-bottom:14px">
                 <div class="kpi e11-accent">
-                    <div class="kpi-l">Trades</div>
+                    <div class="kpi-l">Trades históricos</div>
                     <div class="kpi-v" id="e11-trades">0</div>
-                    <div class="kpi-s">ejecutados</div>
+                    <div class="kpi-s">backtest</div>
                 </div>
                 <div class="kpi e11-accent">
                     <div class="kpi-l">Win Rate</div>
@@ -417,7 +427,7 @@
                 <div>Delta: <span style="color:var(--neon);font-family:'JetBrains Mono'">0.20</span></div>
                 <div>Leverage: <span style="color:var(--neon);font-family:'JetBrains Mono'">5x</span></div>
                 <div>Sizing: <span style="color:var(--neon);font-family:'JetBrains Mono'">Kelly 20–55%</span></div>
-                <div>Dirección: <span style="color:var(--neon);font-family:'JetBrains Mono'">Solo LONG</span></div>
+                <div>Dirección: <span style="color:var(--neon);font-family:'JetBrains Mono'">Solo LONG (verde)</span></div>
                 <div>Activa cuando: <span style="color:var(--text2)">BULL + Vol OK + EMA200↑</span></div>
             </div>
         </div>
@@ -426,9 +436,9 @@
             <div class="strat-title e6" style="font-size:12px;margin-bottom:14px">🔄 Estrategia E6 — Fallback</div>
             <div class="g2" style="gap:8px;margin-bottom:14px">
                 <div class="kpi e6-accent">
-                    <div class="kpi-l">Trades</div>
+                    <div class="kpi-l">Trades históricos</div>
                     <div class="kpi-v" id="e6-trades">0</div>
-                    <div class="kpi-s">ejecutados</div>
+                    <div class="kpi-s">backtest</div>
                 </div>
                 <div class="kpi e6-accent">
                     <div class="kpi-l">Win Rate</div>
@@ -450,28 +460,68 @@
                 <div>Delta: <span style="color:var(--blue);font-family:'JetBrains Mono'">0.30</span></div>
                 <div>Leverage: <span style="color:var(--blue);font-family:'JetBrains Mono'">5x</span></div>
                 <div>Sizing: <span style="color:var(--blue);font-family:'JetBrains Mono'">Fijo 40%</span></div>
-                <div>Dirección: <span style="color:var(--blue);font-family:'JetBrains Mono'">LONG + SHORT</span></div>
+                <div>Dirección: <span style="color:var(--blue);font-family:'JetBrains Mono'">LONG (azul) + SHORT (ámbar)</span></div>
                 <div>Activa cuando: <span style="color:var(--text2)">E11 HOLD + Vol OK</span></div>
             </div>
         </div>
     </div>
 
-    <!-- PnL comparativo -->
+    <!-- Gráfico histórico BTC + regímenes + trades -->
     <div class="cc">
         <div class="cc-h">
-            <span class="cc-t">PnL por Trade — E11 vs E6</span>
+            <span class="cc-t">BTC/USD · Régimen HMM + Trades históricos de ambas estrategias</span>
+            <div class="pbs" id="pbs-hist">
+                <button class="pb"    onclick="filterHist(30,this)">30D</button>
+                <button class="pb on" onclick="filterHist(90,this)">90D</button>
+                <button class="pb"    onclick="filterHist(180,this)">180D</button>
+                <button class="pb"    onclick="filterHist(365,this)">1Y</button>
+                <button class="pb"    onclick="filterHist(0,this)">Test completo</button>
+            </div>
         </div>
-        <div id="c-strat-pnl" style="height:280px"></div>
+        <div id="c-hist" style="height:520px"></div>
     </div>
 
-    <div class="g2">
+    <!-- Leyenda de colores -->
+    <div class="cc" style="padding:14px;margin-top:10px">
+        <div class="sec-title">Leyenda</div>
+        <div style="display:flex;flex-wrap:wrap;gap:18px;font-size:11px;color:var(--text2)">
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:24px;height:12px;background:rgba(61,255,162,.18);border:1px solid rgba(61,255,162,.35);display:inline-block"></span>
+                <span>Régimen BULL</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:24px;height:12px;background:rgba(255,107,107,.18);border:1px solid rgba(255,107,107,.35);display:inline-block"></span>
+                <span>Régimen BEAR</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:24px;height:12px;background:rgba(255,214,102,.14);border:1px solid rgba(255,214,102,.30);display:inline-block"></span>
+                <span>Régimen SIDEWAYS</span>
+            </div>
+            <div style="width:1px;height:20px;background:var(--border)"></div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:#3DFFA2;font-size:16px;line-height:1">▲</span>
+                <span>E11 · LONG (verde)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:#6BA3FF;font-size:16px;line-height:1">▲</span>
+                <span>E6 · LONG (azul)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="color:#FFD666;font-size:16px;line-height:1">▼</span>
+                <span>E6 · SHORT (ámbar)</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Distribución PnL debajo -->
+    <div class="g2" style="margin-top:10px">
         <div class="cc">
-            <div class="cc-h"><span class="cc-t">Distribucion PnL — E11</span></div>
-            <div id="c-e11-dist" style="height:240px"></div>
+            <div class="cc-h"><span class="cc-t">Distribución PnL — E11 (histórico)</span></div>
+            <div id="c-e11-dist" style="height:220px"></div>
         </div>
         <div class="cc">
-            <div class="cc-h"><span class="cc-t">Distribucion PnL — E6</span></div>
-            <div id="c-e6-dist" style="height:240px"></div>
+            <div class="cc-h"><span class="cc-t">Distribución PnL — E6 (histórico)</span></div>
+            <div id="c-e6-dist" style="height:220px"></div>
         </div>
     </div>
 </div>
@@ -813,9 +863,8 @@ function updateUI(d) {
     document.getElementById('st-e6-wr').textContent     = s_e6.n > 0 ? fmt(s_e6.wr,1)+'%' : '—';
     document.getElementById('st-e6-avg').textContent    = s_e6.n > 0 ? fmtSign(s_e6.avg,4) : '—';
 
-    // Estrategias tab
-    setStrat('e11', s_e11);
-    setStrat('e6',  s_e6);
+    // Estrategias tab: NO sobreescribir con trades del bot vivo;
+    // las tarjetas E11/E6 se rellenan desde historical_trades.json (updateHistMeta).
 
     // Posicion activa
     const posCard = document.getElementById('pos-card');
@@ -846,13 +895,12 @@ function updateUI(d) {
     updateEquityTab(d);
     filterEq(168, document.querySelector('#pbs-eq .pb.on'));
 
-    // Charts
+    // Charts del overview
     renderDailyPnl('c-daily',  d.daily_pnl || []);
     renderDailyPnl('c-daily2', d.daily_pnl || []);
-    renderStratPnl(tr_e11, tr_e6);
-    renderDist('c-e11-dist', tr_e11, '#3DFFA2');
-    renderDist('c-e6-dist',  tr_e6,  '#6BA3FF');
     renderRecentTrades();
+    // Los histogramas de E11/E6 y el chart histórico se dibujan desde
+    // historical_trades.json en loadHistorical() → updateHistMeta() + filterHist().
 
     // Nuevos graficos
     probHistory = d.prob_history || [];
@@ -1489,6 +1537,225 @@ function filterMkt(hours, btn) {
     Plotly.react('c-mkt', traces, layout, CFG);
 }
 
+// ── Histórico de backtest (candlestick + regímenes + trades) ──────────────────
+let histData = null;  // cargado desde historical_trades.json
+
+function loadHistorical() {
+    fetch('./historical_trades.json?t='+Date.now())
+        .then(r => r.ok ? r.json() : Promise.reject(r.status))
+        .then(d => {
+            histData = d;
+            updateHistMeta();
+            filterHist(90, document.querySelector('#pbs-hist .pb.on'));
+        })
+        .catch(e => {
+            console.warn('historical_trades.json no disponible:', e);
+            const el = document.getElementById('c-hist');
+            if (el) {
+                Plotly.purge('c-hist');
+                el.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;text-align:center;padding:20px">Sin datos históricos.<br>Genera <code>historical_trades.json</code> con el notebook y súbelo a <code>docs/</code>.</div>';
+            }
+        });
+}
+
+function updateHistMeta() {
+    if (!histData) return;
+    const m  = histData.meta || {};
+    const e6 = m.e6 || {};
+    const e11= m.e11 || {};
+
+    // Card E11 con datos históricos
+    document.getElementById('e11-trades').textContent = e11.n || 0;
+    document.getElementById('e11-wr').textContent     = e11.n > 0 ? fmt(e11.wr,1)+'%' : '—';
+    document.getElementById('e11-pnl').textContent    = e11.n > 0 ? fmtSign(e11.pnl,2) : '—';
+    document.getElementById('e11-pnl').className      = 'kpi-v ' + cc(e11.pnl);
+    document.getElementById('e11-avg').textContent    = e11.n > 0 ? fmtSign(e11.avg,4) : '—';
+    document.getElementById('e11-avg').className      = 'kpi-v ' + cc(e11.avg);
+
+    // Card E6 con datos históricos
+    document.getElementById('e6-trades').textContent = e6.n || 0;
+    document.getElementById('e6-wr').textContent     = e6.n > 0 ? fmt(e6.wr,1)+'%' : '—';
+    document.getElementById('e6-pnl').textContent    = e6.n > 0 ? fmtSign(e6.pnl,2) : '—';
+    document.getElementById('e6-pnl').className      = 'kpi-v ' + cc(e6.pnl);
+    document.getElementById('e6-avg').textContent    = e6.n > 0 ? fmtSign(e6.avg,4) : '—';
+    document.getElementById('e6-avg').className      = 'kpi-v ' + cc(e6.avg);
+
+    // Banner info
+    if (m.test_start && m.test_end) {
+        const s = m.test_start.slice(0,10), e = m.test_end.slice(0,10);
+        document.getElementById('hist-period').textContent = `Test set: ${s} → ${e} (${m.test_candles} velas 1h)`;
+    }
+    if (m.generated_at) {
+        document.getElementById('hist-generated').textContent =
+            'Generado ' + m.generated_at.slice(0,16).replace('T',' ') + ' UTC';
+    }
+
+    // Histogramas históricos
+    renderDist('c-e11-dist', (histData.trades_e11||[]).map(t=>({pnl_usdt:t.pnl})), '#3DFFA2');
+    renderDist('c-e6-dist',  (histData.trades_e6 ||[]).map(t=>({pnl_usdt:t.pnl})), '#6BA3FF');
+}
+
+function filterHist(days, btn) {
+    if (btn) {
+        document.querySelectorAll('#pbs-hist .pb').forEach(b=>b.classList.remove('on'));
+        btn.classList.add('on');
+    }
+    if (!histData) return;
+
+    const candles = histData.candles || [];
+    const spans   = histData.regime_spans || [];
+    const trE11   = histData.trades_e11 || [];
+    const trE6    = histData.trades_e6  || [];
+
+    if (!candles.length) {
+        showEmptyChart('c-hist', 'Sin candles históricos');
+        return;
+    }
+    prepPlot('c-hist');
+
+    // Filtrar por rango
+    // OJO: los datos son del test set, cuyo 'end' puede ser anterior a "ahora".
+    // Si el usuario pide 30D, cortamos desde (fin_del_test - 30D), no desde hoy.
+    const testEnd = new Date(candles[candles.length-1].ts);
+    let cutoff = null;
+    if (days > 0) {
+        cutoff = new Date(testEnd.getTime() - days*24*60*60*1000);
+    }
+
+    const cFiltered = cutoff
+        ? candles.filter(c => new Date(c.ts) >= cutoff)
+        : candles;
+    const tE11 = cutoff ? trE11.filter(t => new Date(t.open_ts) >= cutoff) : trE11;
+    const tE6  = cutoff ? trE6 .filter(t => new Date(t.open_ts) >= cutoff) : trE6;
+
+    // Tramos de régimen que solapan con el rango
+    const xMin = cFiltered.length ? new Date(cFiltered[0].ts) : testEnd;
+    const xMax = testEnd;
+    const spansVisible = spans.filter(s => new Date(s.end) >= xMin && new Date(s.start) <= xMax);
+
+    // Shapes de régimen (bandas verticales)
+    const REGIME_FILL = {
+        'BULL':     'rgba(61,255,162,.10)',
+        'BEAR':     'rgba(255,107,107,.10)',
+        'SIDEWAYS': 'rgba(255,214,102,.07)'
+    };
+    const shapes = spansVisible.map(s => ({
+        type:'rect', xref:'x', yref:'paper',
+        x0: s.start, x1: s.end, y0:0, y1:1,
+        fillcolor: REGIME_FILL[s.regime] || 'rgba(255,255,255,.03)',
+        line:{width:0}, layer:'below'
+    }));
+
+    // Trace candlestick
+    const xs = cFiltered.map(c => c.ts);
+    const traces = [{
+        type:'candlestick',
+        x: xs,
+        open:  cFiltered.map(c=>c.open),
+        high:  cFiltered.map(c=>c.high),
+        low:   cFiltered.map(c=>c.low),
+        close: cFiltered.map(c=>c.close),
+        name:'BTC/USD',
+        increasing:{line:{color:'#3DFFA2',width:.8}, fillcolor:'rgba(61,255,162,.35)'},
+        decreasing:{line:{color:'#FF6B6B',width:.8}, fillcolor:'rgba(255,107,107,.35)'},
+        showlegend:false,
+        hoverlabel:{bgcolor:'#222228'}
+    }];
+
+    // Marcadores E11 LONG (triángulo verde arriba)
+    if (tE11.length) {
+        traces.push({
+            type:'scatter', mode:'markers',
+            x: tE11.map(t=>t.open_ts),
+            y: tE11.map(t=>t.entry),
+            name:'E11 LONG',
+            marker:{
+                symbol:'triangle-up', size:11, color:'#3DFFA2',
+                line:{color:'#0A0A0C', width:1}
+            },
+            customdata: tE11.map(t=>[t.close_ts, t.exit, t.pnl, t.prob]),
+            hovertemplate:
+                '<b>E11 · LONG</b><br>'+
+                'Apertura: %{x|%d %b %Y %H:%M}<br>'+
+                'Entry: $%{y:,.0f}<br>'+
+                'Cierre: %{customdata[0]|%d %b %H:%M}<br>'+
+                'Exit: $%{customdata[1]:,.0f}<br>'+
+                'Prob: %{customdata[3]:.4f}<br>'+
+                'PnL: %{customdata[2]:+.4f} USDT'+
+                '<extra></extra>',
+            showlegend:false
+        });
+    }
+
+    // Marcadores E6 — separar LONG y SHORT
+    const tE6Long  = tE6.filter(t => t.dir === 'LONG');
+    const tE6Short = tE6.filter(t => t.dir === 'SHORT');
+
+    if (tE6Long.length) {
+        traces.push({
+            type:'scatter', mode:'markers',
+            x: tE6Long.map(t=>t.open_ts),
+            y: tE6Long.map(t=>t.entry),
+            name:'E6 LONG',
+            marker:{
+                symbol:'triangle-up', size:10, color:'#6BA3FF',
+                line:{color:'#0A0A0C', width:1}
+            },
+            customdata: tE6Long.map(t=>[t.close_ts, t.exit, t.pnl, t.prob]),
+            hovertemplate:
+                '<b>E6 · LONG</b><br>'+
+                'Apertura: %{x|%d %b %Y %H:%M}<br>'+
+                'Entry: $%{y:,.0f}<br>'+
+                'Cierre: %{customdata[0]|%d %b %H:%M}<br>'+
+                'Exit: $%{customdata[1]:,.0f}<br>'+
+                'Prob: %{customdata[3]:.4f}<br>'+
+                'PnL: %{customdata[2]:+.4f} USDT'+
+                '<extra></extra>',
+            showlegend:false
+        });
+    }
+
+    if (tE6Short.length) {
+        traces.push({
+            type:'scatter', mode:'markers',
+            x: tE6Short.map(t=>t.open_ts),
+            y: tE6Short.map(t=>t.entry),
+            name:'E6 SHORT',
+            marker:{
+                symbol:'triangle-down', size:10, color:'#FFD666',
+                line:{color:'#0A0A0C', width:1}
+            },
+            customdata: tE6Short.map(t=>[t.close_ts, t.exit, t.pnl, t.prob]),
+            hovertemplate:
+                '<b>E6 · SHORT</b><br>'+
+                'Apertura: %{x|%d %b %Y %H:%M}<br>'+
+                'Entry: $%{y:,.0f}<br>'+
+                'Cierre: %{customdata[0]|%d %b %H:%M}<br>'+
+                'Exit: $%{customdata[1]:,.0f}<br>'+
+                'Prob: %{customdata[3]:.4f}<br>'+
+                'PnL: %{customdata[2]:+.4f} USDT'+
+                '<extra></extra>',
+            showlegend:false
+        });
+    }
+
+    const layout = {
+        ...L,
+        margin:{l:60, r:12, t:10, b:40},
+        xaxis:{
+            ...L.xaxis,
+            type:'date',
+            rangeslider:{visible:false}
+        },
+        yaxis:{...L.yaxis, title:{text:'USD',standoff:8}, tickformat:',.0f'},
+        shapes,
+        hovermode:'closest',
+        showlegend:false
+    };
+
+    Plotly.react('c-hist', traces, layout, CFG);
+}
+
 // ── Fetch y refresh ───────────────────────────────────────────────────────────
 function fetchData() {
     fetch('./data.json?t='+Date.now())
@@ -1498,6 +1765,7 @@ function fetchData() {
 }
 
 fetchData();
+loadHistorical();
 setInterval(fetchData, 60000);
 </script>
 </body>
