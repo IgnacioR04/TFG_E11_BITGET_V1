@@ -3,13 +3,12 @@ name: Generar historico backtest
 on:
   workflow_dispatch:
   schedule:
-    # Diario a las 06:00 UTC (antes de que empiece la sesion europea)
     - cron: "0 6 * * *"
 
 jobs:
   generar:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
 
     permissions:
       contents: write
@@ -23,23 +22,37 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
           cache: "pip"
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
       - name: Install dependencies
         run: |
           pip install --quiet \
             numpy \
-            "pandas<2.0" \
+            pandas \
             yfinance \
             hmmlearn \
             xgboost \
             scikit-learn \
-            pandas_ta \
+            pandas-ta \
             requests
 
       - name: Generar historical_trades.json
         run: python generar_historico.py
+
+      - name: Verify output
+        run: |
+          test -f docs/historical_trades.json
+          python - <<'PY'
+          import json
+          with open("docs/historical_trades.json","r",encoding="utf-8") as f:
+              data = json.load(f)
+          print("OK historical_trades.json generado")
+          print("meta", data.get("meta", {}))
+          PY
 
       - name: Commit and push result
         run: |
@@ -49,5 +62,5 @@ jobs:
           git checkout main
           git pull origin main --ff-only || git reset --hard origin/main
           git add docs/historical_trades.json
-          git diff --cached --quiet || git commit -m "historico: refresh [$(date -u '+%Y-%m-%d %H:%M UTC')]"
+          git diff --cached --quiet || git commit -m "historico refresh"
           git push origin main
