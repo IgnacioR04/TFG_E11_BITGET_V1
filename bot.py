@@ -459,6 +459,55 @@ def publish_data(state, btc_price, filters, prob):
         json.dump(data, f, separators=(",", ":"), default=str)
     print(f"[E11] docs/data.json OK — BTC={btc_price:.0f}  senal={filters.get('signal')}  paused={state.get('paused')}")
 
+# ── Registrar cierre de trade ─────────────────────────────────────────────────
+def _register_trade_close(state, pos, exit_price, close_time, exit_reason):
+    """
+    Registra un trade cerrado en state["trades"] y limpia la posicion.
+    Aplica comision por ambos lados (apertura + cierre) como en el backtest.
+    """
+    entry = pos.get("entry_price", exit_price)
+    size_btc = pos.get("size_btc", 0)
+    size_usdt = pos.get("size_usdt", 0)
+    leverage = pos.get("leverage", 1)
+    side = pos.get("side", "LONG")
+
+    direction_sign = 1 if side == "LONG" else -1
+    ret = (exit_price - entry) / entry
+    pnl_bruto = size_usdt * leverage * direction_sign * ret
+    comision_total = size_usdt * (COMISION * 2)  # apertura + cierre
+    pnl_net = pnl_bruto - comision_total
+
+    # Cap de perdida al 90% del margen (igual que en el backtest)
+    if pnl_net < -0.90 * size_usdt:
+        pnl_net = -0.90 * size_usdt
+
+    trade_record = {
+        "side":        side,
+        "strategy":    pos.get("strategy"),
+        "entry_price": round(entry, 2),
+        "exit_price":  round(exit_price, 2),
+        "size_btc":    size_btc,
+        "size_usdt":   size_usdt,
+        "pct_used":    pos.get("pct_used"),
+        "leverage":    leverage,
+        "pnl_usdt":    round(pnl_net, 4),
+        "pnl_pct":     round(pnl_net / size_usdt * 100, 2) if size_usdt else 0,
+        "open_time":   pos.get("open_time"),
+        "close_time":  close_time,
+        "open_candle_ts":  pos.get("open_candle_ts"),
+        "exit_reason": exit_reason,
+    }
+    state.setdefault("trades", []).append(trade_record)
+    state["position"] = {"open": False}
+
+    if pnl_net < 0:
+        state["consecutive_losses"] = state.get("consecutive_losses", 0) + 1
+    else:
+        state["consecutive_losses"] = 0
+
+    print(f"[E11] Trade cerrado ({exit_reason}): {side} entry={entry:.0f} exit={exit_price:.0f} PnL={pnl_net:.4f} USDT")
+
+
 # ── Main ──────────────────────────────────────────────────────────────────────
 def run():
     now_utc = datetime.now(timezone.utc).isoformat()
@@ -527,45 +576,6 @@ def run():
         except Exception as e:
             print(f"[E11] Error obteniendo precio: {e}")
 
-    # ── Verificar si hay posicion abierta que cerrar ──────────────────────────
-    pos = state.get("position", {})
-    if pos.get("open") and client:
-        # Comprobar en Bitget si la posicion sigue abierta (puede haberse cerrado por SL/TP)
-        try:
-            has_pos = client.has_open_position("BTCUSDT")
-            if not has_pos:
-                print("[E11] Posicion cerrada externamente (SL/TP alcanzado)")
-                # Registrar trade con precio actual
-                entry = pos.get("entry_price", btc_price)
-                size  = pos.get("size_btc", 0)
-                pnl   = (btc_price - entry) * size * (1 if pos.get("side") == "LONG" else -1)
-                pnl_net = pnl - 2 * COMISION * pos.get("size_usdt", 0)
-                trade_record = {
-                    "side":       pos.get("side"),
-                    "entry_price": round(entry, 2),
-                    "exit_price":  round(btc_price, 2),
-                    "size_btc":    pos.get("size_btc"),
-                    "size_usdt":   pos.get("size_usdt"),
-                    "pct_used":    pos.get("pct_used"),
-                    "leverage":    pos.get("leverage"),
-                    "pnl_usdt":    round(pnl_net, 4),
-                    "pnl_pct":     round(pnl_net / pos.get("size_usdt", 1) * 100, 2),
-                    "open_time":   pos.get("open_time"),
-                    "close_time":  now_utc,
-                    "exit_reason": "SL_TP_OR_EXTERNAL"
-                }
-                state.setdefault("trades", []).append(trade_record)
-                state["position"] = {"open": False}
-                # Actualizar racha de perdidas
-                if pnl_net < 0:
-                    state["consecutive_losses"] = state.get("consecutive_losses", 0) + 1
-                else:
-                    state["consecutive_losses"] = 0
-                print(f"[E11] Trade registrado: PnL={pnl_net:.4f} USDT")
-        except Exception as e:
-            print(f"[E11] Error verificando posicion: {e}")
-            state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
-
     # ── Descargar datos de mercado ────────────────────────────────────────────
     print("[E11] Descargando datos 1h BTC y ETH...")
     df_btc = pd.DataFrame()
@@ -597,7 +607,51 @@ def run():
 
     state["consecutive_errors"] = 0
     btc_price = float(df_btc["close"].iloc[-1])
-    print(f"[E11] BTC velas: {len(df_btc)}  precio cierre: {btc_price:.2f}")
+    # Timestamp (ISO) de la ultima vela 1h cerrada — nuestro "reloj" para el cierre
+    last_candle_ts = df_btc.index[-1].isoformat()
+    print(f"[E11] BTC velas: {len(df_btc)}  precio cierre: {btc_price:.2f}  vela actual: {last_candle_ts}")
+
+    # ── Verificar si hay posicion abierta que cerrar ──────────────────────────
+    # Regla del backtest: cerrar en el close de la vela SIGUIENTE a la de apertura.
+    # Es decir, cerramos en cuanto last_candle_ts != open_candle_ts.
+    pos = state.get("position", {})
+    if pos.get("open"):
+        open_candle_ts = pos.get("open_candle_ts")
+
+        if client:
+            # Comprobar que la posicion sigue abierta en Bitget
+            try:
+                has_pos = client.has_open_position("BTCUSDT")
+            except Exception as e:
+                print(f"[E11] Error verificando posicion: {e}")
+                state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
+                has_pos = True  # asumir que sigue abierta para no hacer nada raro
+
+            if not has_pos:
+                # La posicion ya no existe en Bitget (liquidacion, cierre manual, etc.)
+                print("[E11] Posicion no encontrada en Bitget — registrando cierre externo")
+                _register_trade_close(state, pos, btc_price, now_utc,
+                                      exit_reason="EXTERNAL_CLOSE")
+            elif open_candle_ts and last_candle_ts != open_candle_ts:
+                # Ha cambiado la vela 1h → cierre forzoso a mercado (replica backtest)
+                print(f"[E11] Vela 1h cambio ({open_candle_ts} -> {last_candle_ts}) — cerrando a mercado")
+                try:
+                    client.close_position("BTCUSDT")
+                    time.sleep(2)  # esperar a que se procese el cierre
+                    exit_px = client.get_price("BTCUSDT")
+                    _register_trade_close(state, pos, exit_px, now_utc,
+                                          exit_reason="CANDLE_CLOSE")
+                except Exception as e:
+                    print(f"[E11] Error cerrando posicion: {e}")
+                    state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
+            else:
+                print(f"[E11] Posicion abierta en vela {open_candle_ts}, aun es la vela actual — mantener")
+        else:
+            # Paper mode: cerrar si ha cambiado la vela
+            if open_candle_ts and last_candle_ts != open_candle_ts:
+                print(f"[E11] (paper) Vela 1h cambio — cerrando simulado")
+                _register_trade_close(state, pos, btc_price, now_utc,
+                                      exit_reason="CANDLE_CLOSE_PAPER")
 
     # Macro yfinance
     print("[E11] Descargando macro (Gold, DXY)...")
@@ -731,40 +785,30 @@ def run():
             filters["pct_e6"] = round(pct, 4)
             print(f"[E6] Sizing fijo: pct={pct:.2f}  capital={capital:.2f}  size={size_usdt:.2f} USDT")
 
-        # TP y SL segun direccion
-        if signal == "LONG":
-            tp_price = btc_price * 1.03
-            sl_price = btc_price * 0.98
-        else:
-            tp_price = btc_price * 0.97
-            sl_price = btc_price * 1.02
-
         if client and size_usdt >= 5:
             try:
                 result = client.place_order(
                     symbol    = "BTCUSDT",
                     direction = direction,
                     size_usdt = size_usdt * LEVERAGE,
-                    sl_price  = sl_price,
-                    tp_price  = tp_price,
                     leverage  = LEVERAGE
                 )
                 state["position"] = {
-                    "open":        True,
-                    "side":        signal,
-                    "strategy":    strategy,
-                    "entry_price": result["entry_px"],
-                    "size_btc":    result["qty"],
-                    "size_usdt":   round(size_usdt, 4),
-                    "pct_used":    round(pct, 4),
-                    "leverage":    LEVERAGE,
-                    "open_time":   now_utc,
-                    "order_id":    result["orderId"],
-                    "sl_price":    round(sl_price, 2),
-                    "tp_price":    round(tp_price, 2),
+                    "open":           True,
+                    "side":           signal,
+                    "strategy":       strategy,
+                    "entry_price":    result["entry_px"],
+                    "size_btc":       result["qty"],
+                    "size_usdt":      round(size_usdt, 4),
+                    "pct_used":       round(pct, 4),
+                    "leverage":       LEVERAGE,
+                    "open_time":      now_utc,
+                    "open_candle_ts": last_candle_ts,   # << clave para cierre a siguiente vela
+                    "order_id":       result["orderId"],
                 }
                 state["consecutive_errors"] = 0
-                print(f"[{strategy}] {signal} abierto: {result['qty']} BTC @ {result['entry_px']:.2f}  SL={sl_price:.0f}  TP={tp_price:.0f}")
+                print(f"[{strategy}] {signal} abierto: {result['qty']} BTC @ {result['entry_px']:.2f}  "
+                      f"vela={last_candle_ts} — se cerrara al cambiar de vela 1h")
             except Exception as e:
                 print(f"[BOT] Error abriendo posicion: {e}")
                 state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
@@ -772,24 +816,23 @@ def run():
         elif not client:
             print(f"[{strategy}] Paper mode — {signal} simulado: {size_usdt:.2f} USDT")
             state["position"] = {
-                "open":        True,
-                "side":        signal,
-                "strategy":    strategy,
-                "entry_price": btc_price,
-                "size_btc":    round(size_usdt / btc_price, 6),
-                "size_usdt":   round(size_usdt, 4),
-                "pct_used":    round(pct, 4),
-                "leverage":    LEVERAGE,
-                "open_time":   now_utc,
-                "order_id":    "PAPER",
-                "sl_price":    round(sl_price, 2),
-                "tp_price":    round(tp_price, 2),
+                "open":           True,
+                "side":           signal,
+                "strategy":       strategy,
+                "entry_price":    btc_price,
+                "size_btc":       round(size_usdt / btc_price, 6),
+                "size_usdt":      round(size_usdt, 4),
+                "pct_used":       round(pct, 4),
+                "leverage":       LEVERAGE,
+                "open_time":      now_utc,
+                "open_candle_ts": last_candle_ts,
+                "order_id":       "PAPER",
             }
         else:
             print(f"[BOT] size_usdt={size_usdt:.2f} demasiado pequeno (<5 USDT), no se ejecuta")
 
     elif signal == "HOLD" and state.get("position", {}).get("open"):
-        print("[BOT] Senal HOLD con posicion abierta — mantener hasta SL/TP")
+        print("[BOT] Senal HOLD con posicion abierta — mantener hasta cambio de vela")
 
     # ── Equity history ────────────────────────────────────────────────────────
     eq_entry = {
