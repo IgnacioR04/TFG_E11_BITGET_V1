@@ -979,8 +979,7 @@ function updateTradesTab() {
 
     // PnL por trade chart
     if (allTrades.length) {
-        const cEl = document.getElementById('c-trade-pnl');
-        if (cEl) cEl.innerHTML = '';
+        prepPlot('c-trade-pnl');
         const xs     = allTrades.map((_,i) => i+1);
         const ys     = allTrades.map(t => t.pnl_usdt||0);
         const colors = allTrades.map(t => {
@@ -1088,8 +1087,7 @@ function filterEq(minutes, btn) {
         data = data.filter(e => new Date(e.ts) >= cutoff);
     }
     if (!data.length) { showEmptyChart('c-equity', 'Sin datos de equity aún'); return; }
-    const el = document.getElementById('c-equity');
-    if (el) el.innerHTML = '';
+    prepPlot('c-equity');
     const xs = data.map(e => new Date(e.ts));
     const ys = data.map(e => e.equity);
     Plotly.react('c-equity', [{
@@ -1107,10 +1105,23 @@ function showEmptyChart(divId, msg) {
     el.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;font-style:italic">${msg}</div>`;
 }
 
+// Limpia el div antes de un Plotly.react (quita placeholders previos sin romper Plotly)
+function prepPlot(divId) {
+    const el = document.getElementById(divId);
+    if (!el) return false;
+    // Si hay un placeholder (texto plano) lo quitamos. Plotly mete .plotly-plot-container como primer hijo.
+    const first = el.firstElementChild;
+    const hasPlotly = first && first.classList && first.classList.contains('js-plotly-plot');
+    if (!hasPlotly) {
+        Plotly.purge(divId);
+        el.innerHTML = '';
+    }
+    return true;
+}
+
 function renderDailyPnl(divId, daily) {
     if (!daily.length) { showEmptyChart(divId, 'Sin trades cerrados aún'); return; }
-    const el = document.getElementById(divId);
-    if (el) el.innerHTML = '';
+    prepPlot(divId);
     const sorted = [...daily].sort((a,b)=>a.date.localeCompare(b.date));
     const xs = sorted.map(d=>d.date), ys = sorted.map(d=>d.pnl);
     Plotly.react(divId, [{
@@ -1134,8 +1145,7 @@ function renderStratPnl(tr_e11, tr_e6) {
         hovertemplate:'E6 #%{x}<br>PnL: %{y:.4f} USDT<extra></extra>'
     });
     if (!traces.length) { showEmptyChart('c-strat-pnl', 'Aún no hay trades ejecutados'); return; }
-    const el = document.getElementById('c-strat-pnl');
-    if (el) el.innerHTML = '';
+    prepPlot('c-strat-pnl');
     Plotly.react('c-strat-pnl', traces, {
         ...L, barmode:'group', margin:{l:55,r:12,t:10,b:32},
         legend:{orientation:'h',yanchor:'bottom',y:1.02,xanchor:'right',x:1,font:{size:10,color:'#A0A0AB'}},
@@ -1145,8 +1155,7 @@ function renderStratPnl(tr_e11, tr_e6) {
 
 function renderDist(divId, trades, color) {
     if (!trades.length) { showEmptyChart(divId, 'Sin datos de distribución'); return; }
-    const el = document.getElementById(divId);
-    if (el) el.innerHTML = '';
+    prepPlot(divId);
     const pnls = trades.map(t=>t.pnl_usdt||0);
     Plotly.react(divId, [{
         type:'histogram', x:pnls, nbinsx:20,
@@ -1265,10 +1274,10 @@ function filterProb(minutes, btn) {
     if (!container) return;
 
     if (!data.length) {
-        container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">Sin histórico de probabilidad · el bot registra una muestra por run</div>';
+        showEmptyChart(divId, 'Sin histórico de probabilidad · el bot registra una muestra por run');
         return;
     }
-    container.innerHTML = '';  // limpiar placeholder
+    prepPlot(divId);
 
     const xs = data.map(e => new Date(e.ts));
     const ysE6  = data.map(e => e.prob_e6);
@@ -1352,10 +1361,10 @@ function filterMkt(hours, btn) {
     if (!container) return;
 
     if (!candlesData.length) {
-        container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">Sin datos de velas · el bot las descarga en cada run</div>';
+        showEmptyChart('c-mkt', 'Sin datos de velas · el bot las descarga en cada run');
         return;
     }
-    container.innerHTML = '';
+    prepPlot('c-mkt');
 
     // Filtrar velas
     let candles = candlesData;
