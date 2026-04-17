@@ -1,8 +1,8 @@
 """
 bot.py — E11 XGBoost Bot
 =========================
-Pipeline: descarga datos 1h → calcula 26 features → filtros HMM/GARCH/EMA200 → XGBoost → Kelly sizing → ejecuta en Bitget
-Se ejecuta cada minuto via GitHub Actions. Solo opera LONG cuando todos los filtros pasan.
+Pipeline: descarga datos 1h → calcula 26 features → filtros HMM/GARCH/dead zone → XGBoost → E11/E6 → ejecuta en Bitget
+Se ejecuta cada minuto via GitHub Actions. Intenta E11 primero y, si no pasa, intenta E6.
 La posicion se abre y cierra en la misma hora (holding = 1 ciclo de senal).
 """
 
@@ -382,7 +382,7 @@ def predict_proba(model, x):
 
 # ── Kelly sizing ──────────────────────────────────────────────────────────────
 def kelly_sizing(prob):
-    """Kelly fraccional. Usa abs para soportar LONG (prob>0.5) y SHORT (prob<0.5)."""
+    """Kelly fraccional de E11 segun el notebook sintetizado."""
     edge = 2 * abs(prob - 0.5)
     pct  = BASE_PCT + edge / KELLY_DIV
     return min(pct, PCT_MAX)
