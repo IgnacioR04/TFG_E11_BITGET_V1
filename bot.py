@@ -29,7 +29,8 @@ if LIVE_MODE:
         print("[E11] bitget_api.py no encontrado — solo paper")
 
 # ── Parametros estrategia E11 ─────────────────────────────────────────────────
-DELTA           = 0.20    # dead zone XGBoost
+DELTA_GLOBAL    = 0.05    # dead zone global previa (filtro 3 del pipeline TFG)
+DELTA           = 0.20    # dead zone E11 especifica
 LEVERAGE        = 5       # apalancamiento fijo
 BASE_PCT        = 0.20    # sizing minimo (20% del capital)
 PCT_MAX         = 0.55    # sizing maximo (55% del capital)
@@ -37,14 +38,14 @@ KELLY_DIV       = 3.0     # divisor Kelly fraccional
 GARCH_VOL_UMBRAL= 0.80    # percentil de corte de volatilidad
 EMA_SPAN        = 200     # periodo EMA tendencia diaria
 EMA_SLOPE_DAYS  = 5       # ventana pendiente EMA200
-ALLOW_SHORTS    = False   # shorts desactivados
+ALLOW_SHORTS    = False   # shorts desactivados en E11
 COMISION        = 0.0004  # 0.04% por lado
 
 # ── Parametros estrategia E6 (fallback) ──────────────────────────────────────
 E6_DELTA   = 0.30    # dead zone E6 — mas selectivo
 E6_PCT     = 0.40    # sizing fijo 40% del capital
-# E6 usa el mismo leverage, los mismos modelos y el mismo GARCH
-# pero opera en cualquier regimen (BULL, BEAR, SIDEWAYS) con LONG y SHORT
+# E6 opera en cualquier regimen (BULL, BEAR, SIDEWAYS) con LONG y SHORT
+# usando el submodelo XGBoost correspondiente al regimen HMM del momento.
 
 PARAMS_BULL = {
     'n_estimators': 203,
@@ -381,7 +382,8 @@ def predict_proba(model, x):
 
 # ── Kelly sizing ──────────────────────────────────────────────────────────────
 def kelly_sizing(prob):
-    edge = 2 * (prob - 0.5)
+    """Kelly fraccional. Usa abs para soportar LONG (prob>0.5) y SHORT (prob<0.5)."""
+    edge = 2 * abs(prob - 0.5)
     pct  = BASE_PCT + edge / KELLY_DIV
     return min(pct, PCT_MAX)
 
@@ -707,72 +709,93 @@ def run():
 
     print(f"[BOT] Regimen: {regime}  |  Vol: {vol_pct:.3f}  |  EMA200 slope: {ema_slope:.2f}")
 
-    # ── Intentar E11 primero ──────────────────────────────────────────────────
-    print("[BOT] Intentando E11 (BULL + EMA200 + Kelly)...")
-    if regime == "BULL" and vol_ok and ema_ok:
-        model_bull = load_model("models/xgb_bull.pkl")
-        if model_bull is None:
-            check_auto_pause(state, equity, "Modelo xgb_bull.pkl no cargable")
-            save_state(state)
-            return
-        prob = predict_proba(model_bull, x)
-        filters["prob_e11"]      = round(prob, 4)
-        in_dead_zone_e11         = abs(prob - 0.5) <= DELTA
-        filters["in_dead_zone_e11"] = in_dead_zone_e11
-        print(f"[E11] XGBoost prob: {prob:.4f}  dead_zone={in_dead_zone_e11}")
-
-        if not in_dead_zone_e11 and prob > 0.5:
-            signal   = "LONG"
-            strategy = "E11"
-            print("[E11] *** SENAL LONG — estrategia E11 activa ***")
-        else:
-            print("[E11] Sin senal — prob en dead zone o < 0.5")
+    # ── Seleccion de submodelo segun regimen HMM (igual que pipeline TFG) ──────
+    # BULL -> xgb_bull.pkl    |    BEAR/SIDEWAYS -> xgb_bear.pkl
+    if regime == "BULL":
+        model_active = load_model("models/xgb_bull.pkl")
+        model_tag = "xgb_bull"
     else:
-        reasons = []
-        if regime != "BULL":   reasons.append(f"regimen={regime}")
-        if not vol_ok:         reasons.append(f"vol={vol_pct:.3f}>0.80")
-        if not ema_ok:         reasons.append(f"EMA200 slope={ema_slope:.0f}<=0")
-        print(f"[E11] Bloqueado por: {', '.join(reasons)}")
+        model_active = load_model("models/xgb_bear.pkl")
+        model_tag = "xgb_bear"
+
+    if model_active is None:
+        check_auto_pause(state, equity, f"Modelo {model_tag}.pkl no cargable")
+        save_state(state)
+        return
+
+    # Calcular probabilidad (una sola vez, la misma para E11 y E6)
+    xgb_prob = predict_proba(model_active, x)
+    filters["prob_e11"] = round(xgb_prob, 4)
+    filters["prob_e6"]  = round(xgb_prob, 4)
+    print(f"[BOT] XGBoost ({model_tag}) prob: {xgb_prob:.4f}")
+
+    # ── Filtro 3 del pipeline TFG: dead zone global 0.05 ───────────────────────
+    in_dead_zone_global = abs(xgb_prob - 0.5) <= DELTA_GLOBAL
+    filters["in_dead_zone_global"] = in_dead_zone_global
+
+    # ── Intentar E11 primero ──────────────────────────────────────────────────
+    # Reglas del TFG (run_backtest_e11):
+    #   - active = vol_ok + |prob-0.5| > 0.05
+    #   - |prob-0.5| > DELTA_E11 (=0.20)
+    #   - shorts desactivados (ALLOW_SHORTS=False)
+    #   - macro_up (EMA200 slope > 0) solo para LONG
+    # NO exige regime == BULL (el regimen solo elige submodelo, no bloquea)
+    print("[BOT] Intentando E11 (macro + Kelly + shorts off)...")
+    in_dead_zone_e11 = abs(xgb_prob - 0.5) <= DELTA
+    filters["in_dead_zone_e11"] = in_dead_zone_e11
+
+    if not vol_ok:
+        print(f"[E11] Bloqueado: vol_pct={vol_pct:.3f} > {GARCH_VOL_UMBRAL}")
+    elif in_dead_zone_global:
+        print(f"[E11] Bloqueado: dead zone global |{xgb_prob:.3f}-0.5| <= {DELTA_GLOBAL}")
+    elif in_dead_zone_e11:
+        print(f"[E11] Bloqueado: dead zone E11 |{xgb_prob:.3f}-0.5| <= {DELTA}")
+    else:
+        direccion = 1 if xgb_prob > 0.5 else -1
+        if direccion == -1 and not ALLOW_SHORTS:
+            print(f"[E11] Bloqueado: prob={xgb_prob:.3f}<0.5 y shorts desactivados")
+        elif direccion == 1 and not ema_ok:
+            print(f"[E11] Bloqueado: LONG requiere macro_up pero EMA200 slope={ema_slope:.2f}<=0")
+        else:
+            # Senal valida
+            if direccion == 1:
+                signal   = "LONG"
+                strategy = "E11"
+                prob     = xgb_prob
+                print(f"[E11] *** SENAL LONG — prob={xgb_prob:.4f}  regimen={regime} ***")
+            else:
+                signal   = "SHORT"
+                strategy = "E11"
+                prob     = xgb_prob
+                print(f"[E11] *** SENAL SHORT — prob={xgb_prob:.4f}  regimen={regime} ***")
 
     # ── Si E11 no da senal, intentar E6 como fallback ─────────────────────────
+    # Reglas del TFG (run_backtest con delta=0.30, apal=5, pct=0.40):
+    #   - active = vol_ok + |prob-0.5| > 0.05
+    #   - |prob-0.5| > DELTA_E6 (=0.30)
+    #   - LONG si prob>0.5 / SHORT si prob<0.5  (en cualquier regimen)
     if signal == "HOLD" and not state.get("position", {}).get("open"):
-        print("[BOT] E11 sin senal — intentando E6 (cualquier regimen, LONG+SHORT)...")
+        print("[BOT] E11 sin senal — intentando E6 (delta=0.30, LONG+SHORT)...")
+        in_dead_zone_e6 = abs(xgb_prob - 0.5) <= E6_DELTA
+        filters["in_dead_zone_e6"] = in_dead_zone_e6
 
-        # E6 solo requiere que la volatilidad sea aceptable
-        if vol_ok:
-            # Elegir submodelo segun regimen
-            if regime == "BULL":
-                model_e6 = load_model("models/xgb_bull.pkl")
-            else:
-                model_e6 = load_model("models/xgb_bear.pkl")
-
-            if model_e6 is None:
-                print("[E6] Modelo no cargable — HOLD")
-            else:
-                prob_e6 = predict_proba(model_e6, x)
-                filters["prob_e6"]       = round(prob_e6, 4)
-                in_dead_zone_e6          = abs(prob_e6 - 0.5) <= E6_DELTA
-                filters["in_dead_zone_e6"] = in_dead_zone_e6
-                print(f"[E6] XGBoost prob: {prob_e6:.4f}  dead_zone={in_dead_zone_e6}  regimen={regime}")
-
-                if not in_dead_zone_e6:
-                    if prob_e6 > 0.5:
-                        signal   = "LONG"
-                        strategy = "E6"
-                        prob     = prob_e6
-                        print("[E6] *** SENAL LONG — estrategia E6 fallback ***")
-                    elif prob_e6 < 0.5 and regime != "BULL":
-                        # E6 puede ir SHORT en regimenes no BULL
-                        signal   = "SHORT"
-                        strategy = "E6"
-                        prob     = prob_e6
-                        print("[E6] *** SENAL SHORT — estrategia E6 fallback ***")
-                    else:
-                        print("[E6] Sin senal")
-                else:
-                    print(f"[E6] Prob en dead zone (|{prob_e6:.3f} - 0.5| <= {E6_DELTA})")
+        if not vol_ok:
+            print(f"[E6] Bloqueado: vol_pct={vol_pct:.3f} > {GARCH_VOL_UMBRAL}")
+        elif in_dead_zone_global:
+            print(f"[E6] Bloqueado: dead zone global |{xgb_prob:.3f}-0.5| <= {DELTA_GLOBAL}")
+        elif in_dead_zone_e6:
+            print(f"[E6] Bloqueado: dead zone E6 |{xgb_prob:.3f}-0.5| <= {E6_DELTA}")
         else:
-            print(f"[E6] Volatilidad demasiado alta ({vol_pct:.3f}) — HOLD en ambas estrategias")
+            if xgb_prob > 0.5:
+                signal   = "LONG"
+                strategy = "E6"
+                prob     = xgb_prob
+                print(f"[E6] *** SENAL LONG — prob={xgb_prob:.4f}  regimen={regime} ***")
+            else:
+                signal   = "SHORT"
+                strategy = "E6"
+                prob     = xgb_prob
+                print(f"[E6] *** SENAL SHORT — prob={xgb_prob:.4f}  regimen={regime} ***")
 
     filters["signal"]        = signal
     filters["strategy"]      = strategy if strategy else "NONE"
