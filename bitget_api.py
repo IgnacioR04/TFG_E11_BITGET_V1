@@ -139,39 +139,24 @@ class BitgetClient:
         except RuntimeError:
             return {}
 
-    def place_tpsl(self, symbol, direction, tp_price, sl_price):
-        hold_side = "long" if direction == "buy" else "short"
-        for plan_type, price, label in [
-            ("pos_profit", tp_price, "TP"),
-            ("pos_loss",   sl_price, "SL"),
-        ]:
-            try:
-                self._post("/api/v2/mix/order/place-tpsl", {
-                    "symbol":       symbol,
-                    "productType":  PRODUCT,
-                    "marginCoin":   "USDT",
-                    "planType":     plan_type,
-                    "triggerPrice": str(round(price, 1)),
-                    "triggerType":  "mark_price",
-                    "executePrice": "0",
-                    "holdSide":     hold_side,
-                    "size":         "",
-                    "rangeRate":    "",
-                })
-                print(f"  [BITGET] {label} colocado: {price:.0f}")
-            except Exception as e:
-                print(f"  [BITGET] Aviso {label}: {e}")
-
-    def place_order(self, symbol, direction, size_usdt, sl_price, tp_price, leverage):
+    def place_order(self, symbol, direction, size_usdt, leverage):
         """
-        Abre orden de mercado y coloca TP/SL.
+        Abre orden de mercado SIN TP/SL.
+        El cierre se gestiona desde bot.py al cambiar de vela 1h.
         size_usdt: notional total (margen * leverage ya aplicado).
         """
         mkt_px = self.get_price(symbol)
         step   = self.get_step_size(symbol)
         min_sz = self.get_min_size(symbol)
         qty    = self.round_qty(size_usdt / mkt_px, step)
-        qty    = max(qty, min_sz)
+
+        # Abortar si la qty calculada es menor que el minimo del exchange
+        if qty < min_sz:
+            raise ValueError(
+                f"Qty calculada {qty} BTC < minimo del exchange {min_sz} BTC. "
+                f"size_usdt={size_usdt:.2f} USDT, precio={mkt_px:.0f}. "
+                f"Capital insuficiente para esta operativa."
+            )
 
         if qty <= 0:
             raise ValueError(f"Qty={qty} invalida. size_usdt={size_usdt}")
@@ -196,9 +181,6 @@ class BitgetClient:
         data     = self._post("/api/v2/mix/order/place-order", body)
         order_id = data["data"].get("orderId")
         print(f"  [BITGET] Orden OK: {direction.upper()} {qty} BTC @ ~{mkt_px:.0f}  lev={leverage}x  orderId={order_id}")
-
-        time.sleep(1)
-        self.place_tpsl(symbol, direction, tp_price, sl_price)
 
         return {"orderId": order_id, "qty": qty, "entry_px": mkt_px}
 
