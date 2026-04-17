@@ -8,13 +8,13 @@ on:
 jobs:
   run-bot:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 10
 
     permissions:
       contents: write
 
     env:
-      BITGET_API_KEY:    ${{ secrets.BITGET_API_KEY }}
+      BITGET_API_KEY: ${{ secrets.BITGET_API_KEY }}
       BITGET_API_SECRET: ${{ secrets.BITGET_API_SECRET }}
       BITGET_PASSPHRASE: ${{ secrets.BITGET_PASSPHRASE }}
 
@@ -27,8 +27,11 @@ jobs:
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: "3.12"
           cache: "pip"
+
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
       - name: Install dependencies
         run: pip install -r requirements.txt --quiet
@@ -40,21 +43,9 @@ jobs:
         run: |
           git config user.name "e11-bot"
           git config user.email "e11-bot@noreply.github.com"
-          git add docs/data.json state.json
-          git stash
-          git pull --rebase origin main
-          git stash pop || true
-          git add docs/data.json state.json
-          git diff --cached --quiet || git commit -m "bot: update [$(date -u '+%H:%M:%S UTC')]"
-          git push
-
-      - name: Commit and push data
-        run: |
-          git config user.name "e11-bot"
-          git config user.email "e11-bot@noreply.github.com"
           git fetch origin main
           git checkout main
           git pull origin main --ff-only || git reset --hard origin/main
           git add docs/data.json state.json
-          git diff --cached --quiet || git commit -m "bot: update [$(date -u '+%H:%M:%S UTC')]"
+          git diff --cached --quiet || git commit -m "bot update"
           git push origin main
