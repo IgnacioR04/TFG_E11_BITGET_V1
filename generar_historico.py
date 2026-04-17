@@ -30,29 +30,28 @@ SEED = 42
 np.random.seed(SEED)
 
 MODELS_DIR = Path("models")
-OUT_FILE   = Path("docs/historical_trades.json")
+OUT_FILE = Path("docs/historical_trades.json")
 
 # ── Parametros identicos a comparativa_e6_e11.ipynb ──────────────────────────
-COMISION     = 0.0004
-SLIPPAGE     = 0.0005
-CAPITAL_INI  = 57.94
-TRAIN_PCT    = 0.70
-VAL_PCT      = 0.85
+COMISION = 0.0004
+SLIPPAGE = 0.0005
+CAPITAL_INI = 57.94
+TRAIN_PCT = 0.70
+VAL_PCT = 0.85
 
 # E6
 E6_DELTA = 0.30
-E6_APAL  = 5
-E6_PCT   = 0.40
+E6_APAL = 5
+E6_PCT = 0.40
 
 # E11
-# E11
-E11_DELTA      = 0.20
-E11_APAL       = 5
-E11_BASE_PCT   = 0.20
-E11_PCT_MAX    = 0.55
-E11_KELLY_DIV  = 3.0
-ALLOW_SHORTS   = False
-REQUIRE_MACRO  = True
+E11_DELTA = 0.20
+E11_APAL = 5
+E11_BASE_PCT = 0.20
+E11_PCT_MAX = 0.55
+E11_KELLY_DIV = 3.0
+ALLOW_SHORTS = False
+REQUIRE_MACRO = True
 
 VOL_UMBRAL = 0.80
 
@@ -69,41 +68,96 @@ FEATURE_COLS = [
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 1. Descarga de datos (via yfinance, sustituye los CSV del Drive)
+# 1. Descarga de datos via yfinance
 # ═════════════════════════════════════════════════════════════════════════════
 def descargar_yf(ticker, periodo, intervalo):
     print(f"[YF] Descargando {ticker} ({periodo}, {intervalo})...")
-    df = yf.download(ticker, period=periodo, interval=intervalo,
-                     auto_adjust=False, progress=False)
+    df = yf.download(
+        ticker,
+        period=periodo,
+        interval=intervalo,
+        auto_adjust=False,
+        progress=False,
+    )
     if df.empty:
         print(f"[YF] VACIO para {ticker}")
         return df
+
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
+
     df.columns = [c.lower().replace(" ", "_") for c in df.columns]
     df.index = pd.to_datetime(df.index)
+
     if df.index.tz is not None:
         df.index = df.index.tz_convert(None)
+
     df.index.name = "datetime"
     df = df[~df.index.duplicated(keep="last")].sort_index()
     return df
 
 
+def descargar_yf_1h_largo(ticker, start="2019-01-01", chunk_days=680):
+    print(f"[YF] Descargando largo {ticker} 1h desde {start}...")
+    start_ts = pd.Timestamp(start)
+    end_ts = pd.Timestamp.utcnow().tz_localize(None)
+
+    partes = []
+    cur = start_ts
+
+    while cur < end_ts:
+        nxt = min(cur + pd.Timedelta(days=chunk_days), end_ts)
+        print(f"[YF]  tramo {ticker} {cur.date()} -> {nxt.date()}")
+
+        df = yf.download(
+            ticker,
+            start=cur.strftime("%Y-%m-%d"),
+            end=nxt.strftime("%Y-%m-%d"),
+            interval="1h",
+            auto_adjust=False,
+            progress=False,
+        )
+
+        if not df.empty:
+            if isinstance(df.columns, pd.MultiIndex):
+                df.columns = df.columns.get_level_values(0)
+
+            df.columns = [c.lower().replace(" ", "_") for c in df.columns]
+            df.index = pd.to_datetime(df.index)
+
+            if df.index.tz is not None:
+                df.index = df.index.tz_convert(None)
+
+            df.index.name = "datetime"
+            partes.append(df)
+
+        cur = nxt - pd.Timedelta(days=2)
+
+    if not partes:
+        return pd.DataFrame()
+
+    out = pd.concat(partes).sort_index()
+    out = out[~out.index.duplicated(keep="last")]
+    return out
+
+
 def descargar_todo():
-    # yfinance limita 1h a 730 dias. Descargamos el maximo disponible.
-    df_btc  = descargar_yf("BTC-USD",  "720d", "1h")
-    df_eth  = descargar_yf("ETH-USD",  "720d", "1h")
-    df_gold = descargar_yf("GC=F",     "2y",   "1d")
-    df_dxy  = descargar_yf("DX-Y.NYB", "2y",   "1d")
+    # Descarga larga por tramos para 1h
+    df_btc = descargar_yf_1h_largo("BTC-USD", start="2019-01-01")
+    df_eth = descargar_yf_1h_largo("ETH-USD", start="2019-01-01")
+
+    # Macros con mucha mas historia para no recortar el dataset
+    df_gold = descargar_yf("GC=F", "10y", "1d")
+    df_dxy = descargar_yf("DX-Y.NYB", "10y", "1d")
 
     df_btc = df_btc[["open", "high", "low", "close", "volume"]].dropna(subset=["close"])
     df_eth = df_eth[["close"]].rename(columns={"close": "eth"})
     df_gold = df_gold[["close"]].rename(columns={"close": "gold"})
-    df_dxy  = df_dxy[["close"]].rename(columns={"close": "dxy"})
+    df_dxy = df_dxy[["close"]].rename(columns={"close": "dxy"})
 
-    # Fear & Greed
+    # Fear & Greed completo
     try:
-        r = requests.get("https://api.alternative.me/fng/?limit=2000&format=json", timeout=10)
+        r = requests.get("https://api.alternative.me/fng/?limit=0&format=json", timeout=10)
         dat = r.json()["data"]
         fg = pd.DataFrame(dat)[["timestamp", "value"]]
         fg["timestamp"] = pd.to_datetime(fg["timestamp"].astype(int), unit="s")
@@ -111,14 +165,14 @@ def descargar_todo():
         fg["value"] = fg["value"].astype(float)
         fg.index.name = "datetime"
     except Exception as e:
-        print(f"[FNG] Error: {e}. Usando valor neutro 50.")
+        print(f"[FNG] Error {e}. Usando valor neutro 50.")
         fg = pd.DataFrame({"value": [50]}, index=[df_btc.index[0]])
 
     return df_btc, df_eth, df_gold, df_dxy, fg
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 2. Feature engineering — traduccion exacta del notebook
+# 2. Feature engineering
 # ═════════════════════════════════════════════════════════════════════════════
 def construir_features(df_btc, df_eth, df_gold, df_dxy, fg):
     print("[FEAT] Calculando features...")
@@ -131,27 +185,27 @@ def construir_features(df_btc, df_eth, df_gold, df_dxy, fg):
     df["log_ret_1h"] = np.log(df["close"] / df["close"].shift(1))
     df = df.dropna(subset=["close", "log_ret_1h"])
 
-    df["log_ret_4h"]  = df["log_ret_1h"].rolling(4).sum()
-    df["log_ret_1d"]  = df["log_ret_1h"].rolling(24).sum()
+    df["log_ret_4h"] = df["log_ret_1h"].rolling(4).sum()
+    df["log_ret_1d"] = df["log_ret_1h"].rolling(24).sum()
     df["log_ret_eth"] = np.log(df["eth"] / df["eth"].shift(1))
     df["log_ret_gold"] = np.log(df["gold"] / df["gold"].shift(1)).ffill()
-    df["log_ret_dxy"]  = np.log(df["dxy"]  / df["dxy"].shift(1)).ffill()
+    df["log_ret_dxy"] = np.log(df["dxy"] / df["dxy"].shift(1)).ffill()
 
     close = df["close"]
-    ema21  = ta.ema(close, length=21)
-    ema50  = ta.ema(close, length=50)
+    ema21 = ta.ema(close, length=21)
+    ema50 = ta.ema(close, length=50)
     sma200 = ta.sma(close, length=200)
-    df["ema21_diff"]  = (close - ema21)  / close
-    df["ema50_diff"]  = (close - ema50)  / close
+    df["ema21_diff"] = (close - ema21) / close
+    df["ema50_diff"] = (close - ema50) / close
     df["sma200_diff"] = (close - sma200) / close
 
     macd_df = ta.macd(close, fast=12, slow=26, signal=9)
-    df["macd"]        = macd_df["MACD_12_26_9"]  / close
+    df["macd"] = macd_df["MACD_12_26_9"] / close
     df["macd_signal"] = macd_df["MACDs_12_26_9"] / close
-    df["macd_hist"]   = macd_df["MACDh_12_26_9"] / close
+    df["macd_hist"] = macd_df["MACDh_12_26_9"] / close
 
     df["rsi_14"] = ta.rsi(close, length=14)
-    df["roc_6"]  = ta.roc(close, length=6)
+    df["roc_6"] = ta.roc(close, length=6)
     df["roc_12"] = ta.roc(close, length=12)
     df["roc_24"] = ta.roc(close, length=24)
     df["mom_12"] = ta.mom(close, length=12) / close
@@ -164,7 +218,7 @@ def construir_features(df_btc, df_eth, df_gold, df_dxy, fg):
     bb_l = [c for c in bb.columns if c.startswith("BBL")][0]
     bb_m = [c for c in bb.columns if c.startswith("BBM")][0]
     df["bb_width"] = (bb[bb_u] - bb[bb_l]) / bb[bb_m]
-    df["bb_pct"]   = (close - bb[bb_l]) / (bb[bb_u] - bb[bb_l])
+    df["bb_pct"] = (close - bb[bb_l]) / (bb[bb_u] - bb[bb_l])
 
     df["vol_roll_24h"] = df["log_ret_1h"].rolling(24).std()
 
@@ -188,24 +242,26 @@ def construir_features(df_btc, df_eth, df_gold, df_dxy, fg):
             df[col] = df[col].ffill()
 
     df = df.dropna(subset=FEATURE_COLS + ["target"])
-    print(f"[FEAT] Shape final: {df.shape}")
+    print(f"[FEAT] Shape final {df.shape}")
     return df
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 3. HMM sobre datos diarios — traduccion exacta del notebook
+# 3. HMM sobre datos diarios
 # ═════════════════════════════════════════════════════════════════════════════
 def regimen_hmm(df, df_btc):
     print("[HMM] Resampleando a diario y entrenando...")
 
     df_btc_1d = df_btc.resample("1D").agg(
-        open=("open", "first"), high=("high", "max"),
-        low=("low", "min"), close=("close", "last"),
+        open=("open", "first"),
+        high=("high", "max"),
+        low=("low", "min"),
+        close=("close", "last"),
         volume=("volume", "sum"),
     ).dropna(subset=["close"])
 
     df_daily = df_btc_1d.copy()
-    df_daily["log_ret"]      = np.log(df_daily["close"] / df_daily["close"].shift(1))
+    df_daily["log_ret"] = np.log(df_daily["close"] / df_daily["close"].shift(1))
     df_daily["vol_roll_20d"] = df_daily["log_ret"].rolling(20).std()
     vm_d = df_daily["volume"].rolling(20).mean()
     vs_d = df_daily["volume"].rolling(20).std()
@@ -216,8 +272,8 @@ def regimen_hmm(df, df_btc):
     scaler = StandardScaler()
     X_sc = scaler.fit_transform(X_hmm)
 
-    # Best-of-20 para robustez (critico para regimenes coherentes)
-    best_m, best_s = None, -np.inf
+    best_m = None
+    best_s = -np.inf
     print("[HMM] Entrenando 20 HMM con seeds distintas...")
     for i in range(20):
         m = GaussianHMM(
@@ -234,29 +290,26 @@ def regimen_hmm(df, df_btc):
                 best_s = s
                 best_m = m
         except Exception as e:
-            print(f"[HMM] seed {i} fallo: {e}")
+            print(f"[HMM] seed {i} fallo {e}")
 
-    print(f"[HMM] Mejor log-likelihood: {best_s:.2f}")
+    print(f"[HMM] Mejor log-likelihood {best_s:.2f}")
 
     states = best_m.predict(X_sc)
     df_daily["state_raw"] = states
 
-    # Mapear los 3 estados a BULL / SIDEWAYS / BEAR segun media de retorno
     mean_ret = df_daily.groupby("state_raw")["log_ret"].mean()
     sorted_s = mean_ret.sort_values().index.tolist()
     state_map = {sorted_s[0]: "BEAR", sorted_s[1]: "SIDEWAYS", sorted_s[2]: "BULL"}
     df_daily["regime"] = df_daily["state_raw"].map(state_map)
 
-    print(f"[HMM] Distribucion: {df_daily['regime'].value_counts().to_dict()}")
+    print(f"[HMM] Distribucion {df_daily['regime'].value_counts().to_dict()}")
 
-    # Expandir a frecuencia 1h via forward-fill por dia
     reg_d = df_daily[["regime"]].copy()
     reg_d.index = pd.to_datetime(reg_d.index).normalize()
     rm = reg_d.reindex(df.index.normalize(), method="ffill")
     rm.index = df.index
     df["regime"] = rm["regime"].values
 
-    # Vol percentile expanding (sin leakage)
     df_daily["vol_percentile"] = df_daily["vol_roll_20d"].expanding().rank(pct=True)
     vp_d = df_daily[["vol_percentile"]].copy()
     vp_d.index = pd.to_datetime(vp_d.index).normalize()
@@ -264,7 +317,6 @@ def regimen_hmm(df, df_btc):
     vp_m.index = df.index
     df["vol_percentile"] = vp_m["vol_percentile"].values
 
-    # EMA200 slope (5 dias de diferencia)
     ema200 = df_daily["close"].ewm(span=200, adjust=False).mean()
     ema200_slope = ema200 - ema200.shift(5)
     es_d = pd.DataFrame({"ema_slope": ema200_slope})
@@ -277,72 +329,108 @@ def regimen_hmm(df, df_btc):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 4. Split + probabilidades sobre el test set — traduccion exacta
+# 4. Split y probabilidades
 # ═════════════════════════════════════════════════════════════════════════════
 def generar_test_y_probs(df, xgb_bull, xgb_bear):
     df_clean = df.dropna(subset=FEATURE_COLS + ["target", "regime", "vol_percentile"]).copy()
     n = len(df_clean)
     train_end = int(n * TRAIN_PCT)
-    val_end   = int(n * VAL_PCT)
-    df_test   = df_clean.iloc[val_end:].copy()
+    val_end = int(n * VAL_PCT)
+    df_test = df_clean.iloc[val_end:].copy()
     print(f"[TEST] {df_test.index[0]} -> {df_test.index[-1]} ({len(df_test)} velas)")
 
-    preds, probs, actives = [], [], []
+    preds = []
+    probs = []
+    actives = []
+
     for _, row in df_test.iterrows():
-        regime  = row["regime"]
+        regime = row["regime"]
         vol_pct = row["vol_percentile"]
         x = row[FEATURE_COLS].values.reshape(1, -1)
         model = xgb_bull if regime == "BULL" else xgb_bear
+
         if vol_pct > VOL_UMBRAL:
-            preds.append(np.nan); probs.append(np.nan); actives.append(False); continue
+            preds.append(np.nan)
+            probs.append(np.nan)
+            actives.append(False)
+            continue
+
         prob = float(model.predict_proba(x)[0, 1])
+
         if abs(prob - 0.5) <= 0.05:
-            preds.append(np.nan); probs.append(np.nan); actives.append(False)
+            preds.append(np.nan)
+            probs.append(np.nan)
+            actives.append(False)
         else:
             preds.append(1 if prob > 0.5 else 0)
             probs.append(prob)
             actives.append(True)
 
-    df_test["pred"]   = preds
-    df_test["prob"]   = probs
+    df_test["pred"] = preds
+    df_test["prob"] = probs
     df_test["active"] = actives
-    print(f"[TEST] Activas: {sum(actives)} ({sum(actives)/len(df_test):.1%})")
+    print(f"[TEST] Activas {sum(actives)} ({sum(actives) / len(df_test):.1%})")
+
+    probs_validas = pd.Series([p for p in probs if pd.notna(p)])
+    if len(probs_validas) > 0:
+        print("[TEST] Prob cuantiles")
+        print(probs_validas.quantile([0.01, 0.05, 0.10, 0.50, 0.90, 0.95, 0.99]))
+
+    print("[TEST] Regimen test")
+    print(df_test["regime"].value_counts(dropna=False).to_dict())
+
     return df_test
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 5. Motores de backtest — alineados con xgb_filtroprevio_csv_v2_full y tfg_pipeline_sintetizado
+# 5. Motores de backtest
 # ═════════════════════════════════════════════════════════════════════════════
 def backtest_e6(df, capital_ini):
     capital = capital_ini
     trades = []
     pos = None
     rows = list(df.iterrows())
+
     for i in range(len(rows) - 1):
         ts, row = rows[i]
         ts_next, rnext = rows[i + 1]
         p_sig = rnext["close"]
+
         if pos is not None:
-            p_ent = pos["entry"]; d = pos["dir"]; size = pos["size"]
+            p_ent = pos["entry"]
+            d = pos["dir"]
+            size = pos["size"]
             ret = (p_sig - p_ent) / p_ent
             pnl = size * E6_APAL * d * ret - size * (COMISION + SLIPPAGE)
             if pnl < -0.90 * size:
                 pnl = -0.90 * size
             capital += pnl
             trades.append({
-                "open_ts": pos["open_ts"], "close_ts": ts_next,
+                "open_ts": pos["open_ts"],
+                "close_ts": ts_next,
                 "dir": "LONG" if d == 1 else "SHORT",
-                "entry": round(p_ent, 2), "exit": round(p_sig, 2),
-                "size": round(size, 4), "prob": round(pos["prob"], 4),
-                "pnl": round(pnl, 4), "capital": round(capital, 4),
+                "entry": round(p_ent, 2),
+                "exit": round(p_sig, 2),
+                "size": round(size, 4),
+                "prob": round(pos["prob"], 4),
+                "pnl": round(pnl, 4),
+                "capital": round(capital, 4),
             })
             pos = None
+
         prob = row["prob"]
         if row.get("active", False) and not pd.isna(prob) and abs(prob - 0.5) > E6_DELTA:
             d = 1 if prob > 0.5 else -1
             size = capital * E6_PCT
             capital -= size * (COMISION + SLIPPAGE)
-            pos = {"open_ts": ts_next, "entry": p_sig, "dir": d, "size": size, "prob": prob}
+            pos = {
+                "open_ts": ts_next,
+                "entry": p_sig,
+                "dir": d,
+                "size": size,
+                "prob": prob,
+            }
+
     return pd.DataFrame(trades) if trades else pd.DataFrame()
 
 
@@ -351,29 +439,38 @@ def backtest_e11(df, capital_ini):
     trades = []
     pos = None
     rows = list(df.iterrows())
+
     for i in range(len(rows) - 1):
         ts, row = rows[i]
         ts_next, rnext = rows[i + 1]
         p_sig = rnext["close"]
+
         if pos is not None:
-            p_ent = pos["entry"]; d = pos["dir"]; size = pos["size"]
+            p_ent = pos["entry"]
+            d = pos["dir"]
+            size = pos["size"]
             ret = (p_sig - p_ent) / p_ent
             pnl = size * E11_APAL * d * ret - size * (COMISION + SLIPPAGE)
             if pnl < -0.90 * size:
                 pnl = -0.90 * size
             capital += pnl
             trades.append({
-                "open_ts": pos["open_ts"], "close_ts": ts_next,
+                "open_ts": pos["open_ts"],
+                "close_ts": ts_next,
                 "dir": "LONG" if d == 1 else "SHORT",
-                "entry": round(p_ent, 2), "exit": round(p_sig, 2),
-                "size": round(size, 4), "pct": round(pos["pct"], 4),
+                "entry": round(p_ent, 2),
+                "exit": round(p_sig, 2),
+                "size": round(size, 4),
+                "pct": round(pos["pct"], 4),
                 "prob": round(pos["prob"], 4),
-                "pnl": round(pnl, 4), "capital": round(capital, 4),
+                "pnl": round(pnl, 4),
+                "capital": round(capital, 4),
             })
             pos = None
 
         if row.get("active", False):
             prob = row["prob"]
+
             if pd.isna(prob) or abs(prob - 0.5) <= E11_DELTA:
                 continue
 
@@ -389,7 +486,25 @@ def backtest_e11(df, capital_ini):
             pct = min(E11_PCT_MAX, E11_BASE_PCT + edge / E11_KELLY_DIV)
             size = capital * pct
             capital -= size * (COMISION + SLIPPAGE)
-            pos = {"open_ts": ts_next, "entry": p_sig, "dir": d, "size": size, "pct": pct, "prob": prob}
+            pos = {
+                "open_ts": ts_next,
+                "entry": p_sig,
+                "dir": d,
+                "size": size,
+                "pct": pct,
+                "prob": prob,
+            }
+
+    if len(trades) == 0:
+        tmp = df.copy()
+        tmp = tmp[tmp["active"] == True].copy()
+        if len(tmp) > 0:
+            tmp["abs_edge"] = (tmp["prob"] - 0.5).abs()
+            n_delta = int((tmp["abs_edge"] > E11_DELTA).sum())
+            n_long = int((tmp["prob"] > 0.5).sum())
+            n_macro = int(((tmp["prob"] > 0.5) & (tmp["ema200_slope"] > 0)).sum())
+            print(f"[E11 DEBUG] activas={len(tmp)}  pasan_delta={n_delta}  longs={n_long}  longs_macro_ok={n_macro}")
+
     return pd.DataFrame(trades) if trades else pd.DataFrame()
 
 
@@ -477,6 +592,7 @@ def calcular_regime_spans(df_test):
     spans = []
     current_reg = regime_series.iloc[0]
     current_start = regime_series.index[0]
+
     for ts, reg in regime_series.items():
         if reg != current_reg:
             spans.append({
@@ -486,6 +602,7 @@ def calcular_regime_spans(df_test):
             })
             current_reg = reg
             current_start = ts
+
     spans.append({
         "regime": str(current_reg),
         "start": current_start.isoformat(),
@@ -502,6 +619,7 @@ def trades_to_json(df_tr, strategy):
         pnl_usdt = float(t["pnl"])
         margin = float(t["size"]) if float(t.get("size", 0.0)) != 0 else np.nan
         pnl_pct = float(pnl_usdt / margin * 100.0) if pd.notna(margin) else 0.0
+
         row = {
             "strategy": strategy,
             "side": side,
@@ -540,7 +658,7 @@ def main():
 
     df_btc, df_eth, df_gold, df_dxy, fg = descargar_todo()
     if df_btc.empty:
-        print("[MAIN] ERROR: BTC vacio. Abortando.")
+        print("[MAIN] ERROR BTC vacio. Abortando.")
         return
 
     df = construir_features(df_btc, df_eth, df_gold, df_dxy, fg)
@@ -551,7 +669,7 @@ def main():
     tr_e6 = backtest_e6(df_test, CAPITAL_INI)
     print("[MAIN] Simulando E11...")
     tr_e11 = backtest_e11(df_test, CAPITAL_INI)
-    print(f"[MAIN] E6: {len(tr_e6)} trades | E11: {len(tr_e11)} trades")
+    print(f"[MAIN] E6={len(tr_e6)} trades | E11={len(tr_e11)} trades")
 
     sum_e6 = resumen("E6", tr_e6, CAPITAL_INI)
     sum_e11 = resumen("E11", tr_e11, CAPITAL_INI)
@@ -565,7 +683,7 @@ def main():
         "test_end": test_end,
         "test_candles": int(len(df_test)),
         "rows": int(len(df_test)),
-        "source": "yfinance 720d 1h",
+        "source": "yfinance largo por tramos 1h",
         "capital_inicial": CAPITAL_INI,
         "e6": sum_e6,
         "e11": sum_e11,
@@ -603,6 +721,7 @@ def main():
 
     with open(OUT_FILE, "w") as f:
         json.dump(output, f, separators=(",", ":"))
+
     sz = os.path.getsize(OUT_FILE) / 1024
     print(f"[MAIN] Guardado {OUT_FILE} ({sz:.1f} KB)")
 
