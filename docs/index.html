@@ -112,12 +112,32 @@
         .pipe-step{background:var(--bg2);border:1px solid var(--border);border-radius:6px;padding:10px 14px;min-width:120px;text-align:center;position:relative;}
         .pipe-step.pass{border-color:rgba(61,255,162,.3);}
         .pipe-step.fail{border-color:rgba(255,107,107,.3);}
+        .pipe-step.neutral{border-color:rgba(255,214,102,.3);}
         .pipe-step.skip{opacity:.4;}
         .pipe-step-label{font-size:9px;color:var(--text3);text-transform:uppercase;letter-spacing:.5px;font-weight:600;margin-bottom:4px;}
         .pipe-step-val{font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;}
         .pipe-arrow{color:var(--text3);font-size:16px;padding:0 6px;flex-shrink:0;}
         .pipe-arrow.pass{color:var(--neon);}
         .pipe-arrow.fail{color:var(--red);}
+        .pipe-arrow.neutral{color:var(--amber);}
+
+        /* CONFIANZA BARRAS */
+        .conf-bars{display:flex;flex-direction:column;gap:14px;}
+        .conf-row{display:grid;grid-template-columns:70px 1fr 110px;gap:12px;align-items:center;}
+        .conf-name{font-size:11px;font-weight:700;letter-spacing:.3px;font-family:'JetBrains Mono',monospace;}
+        .conf-name.e11{color:var(--neon);}
+        .conf-name.e6{color:var(--blue);}
+        .conf-track{height:18px;background:var(--bg3);border-radius:4px;border:1px solid var(--border);position:relative;overflow:hidden;}
+        .conf-fill{height:100%;transition:width .4s ease;border-radius:3px;}
+        .conf-fill.e11{background:linear-gradient(90deg,rgba(61,255,162,.3),var(--neon));}
+        .conf-fill.e6-long{background:linear-gradient(90deg,rgba(107,163,255,.3),var(--blue));}
+        .conf-fill.e6-short{background:linear-gradient(90deg,rgba(255,214,102,.3),var(--amber));}
+        .conf-fill.blocked{background:var(--bg4);}
+        .conf-tick{position:absolute;top:0;bottom:0;width:2px;background:var(--text3);opacity:.5;}
+        .conf-val{font-size:11px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600;color:var(--text2);}
+        .conf-val.high{color:var(--neon);}
+        .conf-val.low{color:var(--text3);}
+        .conf-val.blocked{color:var(--red);}
 
         /* TRADES TABLE */
         .tt-wrap{overflow-x:auto;}
@@ -175,6 +195,7 @@
 
 <nav class="tabs">
     <button class="tab on"  onclick="sw('overview',this)">Overview</button>
+    <button class="tab"     onclick="sw('mercado',this)">Mercado BTC</button>
     <button class="tab"     onclick="sw('estrategias',this)">E11 vs E6</button>
     <button class="tab"     onclick="sw('filtros',this)">Pipeline</button>
     <button class="tab"     onclick="sw('trades',this)">Trades</button>
@@ -258,12 +279,12 @@
             <div>
                 <div class="pos-row"><span class="pos-label">Lado</span><span class="pos-value" id="pos-side">—</span></div>
                 <div class="pos-row"><span class="pos-label">Entry</span><span class="pos-value" id="pos-entry">—</span></div>
-                <div class="pos-row"><span class="pos-label">Stop Loss</span><span class="pos-value down" id="pos-sl">—</span></div>
+                <div class="pos-row"><span class="pos-label">Size BTC</span><span class="pos-value" id="pos-size">—</span></div>
             </div>
             <div>
-                <div class="pos-row"><span class="pos-label">Take Profit</span><span class="pos-value up" id="pos-tp">—</span></div>
-                <div class="pos-row"><span class="pos-label">Size BTC</span><span class="pos-value" id="pos-size">—</span></div>
                 <div class="pos-row"><span class="pos-label">Leverage</span><span class="pos-value" id="pos-lev">—</span></div>
+                <div class="pos-row"><span class="pos-label">Vela apertura</span><span class="pos-value" id="pos-candle">—</span></div>
+                <div class="pos-row"><span class="pos-label">Cierre previsto</span><span class="pos-value" id="pos-exit-rule">al cambiar de vela 1h</span></div>
             </div>
         </div>
     </div>
@@ -281,9 +302,85 @@
         <div class="sec-title">Ultimos Trades</div>
         <div class="tt-wrap">
             <table class="tbl">
-                <thead><tr><th>Estrategia</th><th>Lado</th><th>Fecha</th><th>Entry</th><th>Exit</th><th>PnL USDT</th><th>PnL %</th></tr></thead>
+                <thead><tr><th>Estrategia</th><th>Lado</th><th>Fecha</th><th>Entry</th><th>Exit</th><th>PnL USDT</th><th>PnL %</th><th>Cierre</th></tr></thead>
                 <tbody id="tb-recent"></tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<!-- ===== MERCADO BTC ===== -->
+<div id="p-mercado" class="pane">
+    <div class="kpis">
+        <div class="kpi">
+            <div class="kpi-l">BTC Precio Actual</div>
+            <div class="kpi-v" id="m-price">—</div>
+            <div class="kpi-s" id="m-price-ts">en vivo</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Variación 24h</div>
+            <div class="kpi-v" id="m-24h">—</div>
+            <div class="kpi-s">cambio sobre 24 velas</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Velas cargadas</div>
+            <div class="kpi-v" id="m-candles">—</div>
+            <div class="kpi-s">historico 1h</div>
+        </div>
+        <div class="kpi">
+            <div class="kpi-l">Trades en grafico</div>
+            <div class="kpi-v" id="m-trades-shown">—</div>
+            <div class="kpi-s">dentro del rango</div>
+        </div>
+    </div>
+
+    <!-- Grafico principal BTC con trades -->
+    <div class="cc">
+        <div class="cc-h">
+            <span class="cc-t">BTC/USDT · Trades historicos</span>
+            <div class="pbs" id="pbs-mkt">
+                <button class="pb"    onclick="filterMkt(24,this)">24H</button>
+                <button class="pb on" onclick="filterMkt(72,this)">3D</button>
+                <button class="pb"    onclick="filterMkt(168,this)">7D</button>
+                <button class="pb"    onclick="filterMkt(240,this)">10D</button>
+                <button class="pb"    onclick="filterMkt(0,this)">Todo</button>
+            </div>
+        </div>
+        <div id="c-mkt" style="height:440px"></div>
+    </div>
+
+    <!-- Leyenda de colores -->
+    <div class="cc" style="padding:14px;margin-top:10px">
+        <div class="sec-title">Leyenda</div>
+        <div style="display:flex;flex-wrap:wrap;gap:20px;font-size:11px;color:var(--text2)">
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:14px;height:14px;background:#3DFFA2;border-radius:50%;display:inline-block"></span>
+                <span>E11 · LONG</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:14px;height:14px;background:#6BA3FF;border-radius:50%;display:inline-block"></span>
+                <span>E6 · LONG</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:14px;height:14px;background:#FFD666;border-radius:50%;display:inline-block"></span>
+                <span>E6 · SHORT</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:14px;height:14px;border:2px solid #F0F0F2;border-radius:50%;display:inline-block"></span>
+                <span>Apertura (entry)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:14px;height:14px;background:#F0F0F2;border-radius:2px;display:inline-block"></span>
+                <span>Cierre (exit)</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:20px;height:2px;background:#3DFFA2;display:inline-block"></span>
+                <span>Trade ganador</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px">
+                <span style="width:20px;height:2px;background:#FF6B6B;display:inline-block"></span>
+                <span>Trade perdedor</span>
+            </div>
         </div>
     </div>
 </div>
@@ -426,6 +523,29 @@
         <div class="pipeline" id="pipe-e6"></div>
     </div>
 
+    <!-- Barras de confianza -->
+    <div class="cc" style="padding:14px;margin-bottom:14px">
+        <div class="sec-title">Confianza a señal (distancia a dead zone)</div>
+        <div id="conf-bars" class="conf-bars"></div>
+        <div style="font-size:10px;color:var(--text3);margin-top:8px;line-height:1.5">
+            Confianza = |prob − 0.5| / δ. A 100% el modelo dispara señal. Por debajo, dead zone.
+            δ<sub>E11</sub>=0.20, δ<sub>E6</sub>=0.30.
+        </div>
+    </div>
+
+    <!-- Historial de probabilidades -->
+    <div class="cc">
+        <div class="cc-h">
+            <span class="cc-t">Historial XGBoost · últimas {N} runs</span>
+            <div class="pbs" id="pbs-prob">
+                <button class="pb"    onclick="filterProb(60,this)">1H</button>
+                <button class="pb on" onclick="filterProb(240,this)">4H</button>
+                <button class="pb"    onclick="filterProb(0,this)">Todo</button>
+            </div>
+        </div>
+        <div id="c-prob" style="height:240px"></div>
+    </div>
+
     <!-- Tabla detalle -->
     <div class="g2">
         <div class="cc" style="padding:14px">
@@ -506,7 +626,7 @@
             <table class="tbl">
                 <thead><tr>
                     <th>#</th><th>Estrat.</th><th>Lado</th><th>Apertura</th><th>Cierre</th>
-                    <th>Entry</th><th>Exit</th><th>PnL USDT</th><th>PnL %</th><th>Kelly/Pct</th>
+                    <th>Entry</th><th>Exit</th><th>PnL USDT</th><th>PnL %</th><th>Kelly/Pct</th><th>Motivo</th>
                 </tr></thead>
                 <tbody id="tb-all"></tbody>
             </table>
@@ -703,10 +823,12 @@ function updateUI(d) {
         posCard.style.display = 'block';
         document.getElementById('pos-side').textContent  = pos.side || '—';
         document.getElementById('pos-entry').textContent = '$' + fmt(pos.entry_price, 0);
-        document.getElementById('pos-sl').textContent    = '$' + fmt(pos.sl_price, 0);
-        document.getElementById('pos-tp').textContent    = '$' + fmt(pos.tp_price, 0);
         document.getElementById('pos-size').textContent  = fmt(pos.size_btc, 5) + ' BTC';
         document.getElementById('pos-lev').textContent   = (pos.leverage || '—') + 'x';
+        const candleTs = pos.open_candle_ts;
+        document.getElementById('pos-candle').textContent = candleTs
+            ? new Date(candleTs).toLocaleString('es-ES',{hour:'2-digit',minute:'2-digit',day:'2-digit',month:'2-digit'})
+            : '—';
         const badge = document.getElementById('pos-strategy-badge');
         badge.textContent = pos.strategy || '—';
         badge.className   = 'strat-badge ' + (pos.strategy || '');
@@ -731,6 +853,11 @@ function updateUI(d) {
     renderDist('c-e11-dist', tr_e11, '#3DFFA2');
     renderDist('c-e6-dist',  tr_e6,  '#6BA3FF');
     renderRecentTrades();
+
+    // Nuevos graficos
+    probHistory = d.prob_history || [];
+    renderProbHistory();
+    renderMarket(d);
 }
 
 // ── Filtros ───────────────────────────────────────────────────────────────────
@@ -768,14 +895,19 @@ function updateFiltros(filt) {
         {label:'Señal E11', val: e11Pass&&probE11!=null&&!filt.in_dead_zone_e11&&probE11>0.5?'LONG':'HOLD', ok: strategy==='E11'},
     ]);
 
-    // Pipeline visual E6
+    // Pipeline visual E6 — dead zone = neutro (ambar), no rojo
+    const inDz = filt.in_dead_zone_e6;
+    const e6Dir = (probE6!=null && !inDz) ? (probE6>0.5?'LONG':(regime!=='BULL'?'SHORT':'HOLD')) : 'HOLD';
     renderPipeline('pipe-e6', [
         {label:'E11 HOLD', val: strategy!=='E11'?'✓':'✗', ok: strategy!=='E11'},
         {label:'Vol GARCH', val: volPct!=null?fmt(volPct,3):'—', ok: filt.vol_ok},
-        {label:'XGBoost', val: probE6!=null?fmt(probE6,4):'n/a', ok: probE6!=null&&!filt.in_dead_zone_e6},
-        {label:'Dead zone', val: filt.in_dead_zone_e6!=null?(filt.in_dead_zone_e6?'dentro':'fuera'):'—', ok: !filt.in_dead_zone_e6},
-        {label:'Señal E6', val: strategy==='E6'?(sig):'HOLD', ok: strategy==='E6'},
+        {label:'XGBoost', val: probE6!=null?fmt(probE6,4):'n/a', ok: probE6!=null&&!inDz, neutral: probE6!=null&&inDz},
+        {label:'Dead zone', val: inDz!=null?(inDz?'dentro':'fuera'):'—', ok: !inDz, neutral: inDz===true},
+        {label:'Señal E6', val: strategy==='E6'?(sig):'HOLD', ok: strategy==='E6', neutral: strategy!=='E6' && inDz===true},
     ]);
+
+    // Barras de confianza
+    renderConfBars(probE11, probE6, regime, filt);
 
     // Tabla E11
     document.getElementById('ftr-regime').innerHTML = regime==='BULL'
@@ -795,7 +927,7 @@ function updateFiltros(filt) {
         ? `<span class="ok">✓ ${fmt(volPct,3)}</span>` : `<span class="fail">✗ ${fmt(volPct,3)}</span>`;
     document.getElementById('ftr-prob-e6').textContent = probE6!=null?fmt(probE6,4):'—';
     document.getElementById('ftr-dz-e6').innerHTML = filt.in_dead_zone_e6!=null
-        ? (filt.in_dead_zone_e6?`<span class="fail">Dentro</span>`:`<span class="ok">Fuera</span>`) : '—';
+        ? (filt.in_dead_zone_e6?`<span class="warn">Dentro</span>`:`<span class="ok">Fuera</span>`) : '—';
     document.getElementById('ftr-dir-e6').textContent = strategy==='E6'?(sig==='LONG'?'LONG':'SHORT'):'—';
     document.getElementById('ftr-sig-e6').innerHTML = `<span class="sig ${strategy==='E6'?sig:'HOLD'}">${strategy==='E6'?sig:'HOLD'}</span>`;
 }
@@ -805,12 +937,22 @@ function renderPipeline(divId, steps) {
     container.innerHTML = '';
     steps.forEach((s, i) => {
         const step = document.createElement('div');
-        step.className = 'pipe-step' + (s.skip?' skip':(s.ok?' pass':' fail'));
-        step.innerHTML = `<div class="pipe-step-label">${s.label}</div><div class="pipe-step-val ${s.ok?'up':'down'}">${s.val}</div>`;
+        let cls = 'pipe-step';
+        if (s.skip) cls += ' skip';
+        else if (s.ok) cls += ' pass';
+        else if (s.neutral) cls += ' neutral';
+        else cls += ' fail';
+        step.className = cls;
+        const valCls = s.ok ? 'up' : s.neutral ? 'warn' : 'down';
+        step.innerHTML = `<div class="pipe-step-label">${s.label}</div><div class="pipe-step-val ${valCls}">${s.val}</div>`;
         container.appendChild(step);
         if (i < steps.length-1) {
             const arrow = document.createElement('div');
-            arrow.className = 'pipe-arrow' + (s.ok?' pass':' fail');
+            let aCls = 'pipe-arrow';
+            if (s.ok) aCls += ' pass';
+            else if (s.neutral) aCls += ' neutral';
+            else aCls += ' fail';
+            arrow.className = aCls;
             arrow.textContent = '→';
             container.appendChild(arrow);
         }
@@ -837,6 +979,8 @@ function updateTradesTab() {
 
     // PnL por trade chart
     if (allTrades.length) {
+        const cEl = document.getElementById('c-trade-pnl');
+        if (cEl) cEl.innerHTML = '';
         const xs     = allTrades.map((_,i) => i+1);
         const ys     = allTrades.map(t => t.pnl_usdt||0);
         const colors = allTrades.map(t => {
@@ -850,6 +994,8 @@ function updateTradesTab() {
             hovertemplate:'Trade %{x}<br>PnL: %{y:.4f} USDT<extra></extra>'
         }], {...L, margin:{l:55,r:12,t:10,b:32},
              shapes:[{type:'line',x0:0,x1:allTrades.length+1,y0:0,y1:0,line:{color:'#333340',width:1,dash:'dot'}}]}, CFG);
+    } else {
+        showEmptyChart('c-trade-pnl', 'Aún no hay trades ejecutados');
     }
 }
 
@@ -859,7 +1005,7 @@ function renderAllTrades() {
     const tbody = document.getElementById('tb-all');
     tbody.innerHTML = '';
     if (!filtered.length) {
-        tbody.innerHTML='<tr><td colspan="10" style="text-align:center;color:var(--text3);padding:20px">Sin trades</td></tr>';
+        tbody.innerHTML='<tr><td colspan="11" style="text-align:center;color:var(--text3);padding:20px">Sin trades</td></tr>';
         return;
     }
     [...filtered].reverse().forEach((t,i) => {
@@ -868,6 +1014,7 @@ function renderAllTrades() {
         const strat= (t.strategy||'').toUpperCase();
         const dO   = t.open_time  ? t.open_time.replace('T',' ').slice(0,16)  : '—';
         const dC   = t.close_time ? t.close_time.replace('T',' ').slice(0,16) : '—';
+        const reason = (t.exit_reason || '—').replace(/_/g,' ').toLowerCase();
         const tr   = document.createElement('tr');
         tr.innerHTML = `
             <td>${filtered.length-i}</td>
@@ -879,7 +1026,8 @@ function renderAllTrades() {
             <td>$${fmt(t.exit_price,0)}</td>
             <td class="${cls}">${fmtSign(pnl,4)}</td>
             <td class="${cls}">${fmtSign(t.pnl_pct,2)}%</td>
-            <td style="color:var(--text3)">${t.pct_used!=null?fmt(t.pct_used*100,1)+'%':'—'}</td>`;
+            <td style="color:var(--text3)">${t.pct_used!=null?fmt(t.pct_used*100,1)+'%':'—'}</td>
+            <td style="color:var(--text3);font-size:10px">${reason}</td>`;
         tbody.appendChild(tr);
     });
 }
@@ -889,7 +1037,7 @@ function renderRecentTrades() {
     tbody.innerHTML = '';
     const recent = [...allTrades].reverse().slice(0,8);
     if (!recent.length) {
-        tbody.innerHTML='<tr><td colspan="7" style="text-align:center;color:var(--text3);padding:20px">Sin trades aun</td></tr>';
+        tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:var(--text3);padding:20px">Sin trades aun</td></tr>';
         return;
     }
     recent.forEach(t => {
@@ -897,6 +1045,7 @@ function renderRecentTrades() {
         const cls  = pnl>=0?'up':'down';
         const strat= (t.strategy||'').toUpperCase();
         const dO   = t.open_time ? t.open_time.replace('T',' ').slice(0,16) : '—';
+        const reason = (t.exit_reason || '—').replace(/_/g,' ').toLowerCase();
         const tr   = document.createElement('tr');
         tr.innerHTML = `
             <td><span class="strat-badge ${strat}">${strat||'—'}</span></td>
@@ -905,7 +1054,8 @@ function renderRecentTrades() {
             <td>$${fmt(t.entry_price,0)}</td>
             <td>$${fmt(t.exit_price,0)}</td>
             <td class="${cls}">${fmtSign(pnl,4)}</td>
-            <td class="${cls}">${fmtSign(t.pnl_pct,2)}%</td>`;
+            <td class="${cls}">${fmtSign(t.pnl_pct,2)}%</td>
+            <td style="color:var(--text3);font-size:10px">${reason}</td>`;
         tbody.appendChild(tr);
     });
 }
@@ -937,7 +1087,9 @@ function filterEq(minutes, btn) {
         const cutoff = new Date(Date.now() - minutes*60*1000);
         data = data.filter(e => new Date(e.ts) >= cutoff);
     }
-    if (!data.length) { Plotly.react('c-equity',[],L,CFG); return; }
+    if (!data.length) { showEmptyChart('c-equity', 'Sin datos de equity aún'); return; }
+    const el = document.getElementById('c-equity');
+    if (el) el.innerHTML = '';
     const xs = data.map(e => new Date(e.ts));
     const ys = data.map(e => e.equity);
     Plotly.react('c-equity', [{
@@ -948,8 +1100,17 @@ function filterEq(minutes, btn) {
 }
 
 // ── Charts ────────────────────────────────────────────────────────────────────
+function showEmptyChart(divId, msg) {
+    const el = document.getElementById(divId);
+    if (!el) return;
+    Plotly.purge(divId);
+    el.innerHTML = `<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px;font-style:italic">${msg}</div>`;
+}
+
 function renderDailyPnl(divId, daily) {
-    if (!daily.length) { Plotly.react(divId,[],{...L,margin:{l:55,r:12,t:10,b:32}},CFG); return; }
+    if (!daily.length) { showEmptyChart(divId, 'Sin trades cerrados aún'); return; }
+    const el = document.getElementById(divId);
+    if (el) el.innerHTML = '';
     const sorted = [...daily].sort((a,b)=>a.date.localeCompare(b.date));
     const xs = sorted.map(d=>d.date), ys = sorted.map(d=>d.pnl);
     Plotly.react(divId, [{
@@ -972,7 +1133,9 @@ function renderStratPnl(tr_e11, tr_e6) {
         marker:{color:tr_e6.map(t=>(t.pnl_usdt||0)>=0?'#6BA3FF':'rgba(107,163,255,.35)'),opacity:0.85},
         hovertemplate:'E6 #%{x}<br>PnL: %{y:.4f} USDT<extra></extra>'
     });
-    if (!traces.length) { Plotly.react('c-strat-pnl',[],L,CFG); return; }
+    if (!traces.length) { showEmptyChart('c-strat-pnl', 'Aún no hay trades ejecutados'); return; }
+    const el = document.getElementById('c-strat-pnl');
+    if (el) el.innerHTML = '';
     Plotly.react('c-strat-pnl', traces, {
         ...L, barmode:'group', margin:{l:55,r:12,t:10,b:32},
         legend:{orientation:'h',yanchor:'bottom',y:1.02,xanchor:'right',x:1,font:{size:10,color:'#A0A0AB'}},
@@ -981,7 +1144,9 @@ function renderStratPnl(tr_e11, tr_e6) {
 }
 
 function renderDist(divId, trades, color) {
-    if (!trades.length) { Plotly.react(divId,[],L,CFG); return; }
+    if (!trades.length) { showEmptyChart(divId, 'Sin datos de distribución'); return; }
+    const el = document.getElementById(divId);
+    if (el) el.innerHTML = '';
     const pnls = trades.map(t=>t.pnl_usdt||0);
     Plotly.react(divId, [{
         type:'histogram', x:pnls, nbinsx:20,
@@ -991,6 +1156,328 @@ function renderDist(divId, trades, color) {
         ...L, margin:{l:45,r:12,t:10,b:32},
         shapes:[{type:'line',x0:0,x1:0,y0:0,y1:1,yref:'paper',line:{color:'#FF6B6B',width:1,dash:'dot'}}]
     }, CFG);
+}
+
+// ── Confianza bars ────────────────────────────────────────────────────────────
+function renderConfBars(probE11, probE6, regime, filt) {
+    const DELTA_E11 = 0.20;
+    const DELTA_E6  = 0.30;
+    const bars = document.getElementById('conf-bars');
+    if (!bars) return;
+
+    // E11: solo tiene sentido si regimen es BULL y filtros pasan
+    const e11Available = regime === 'BULL' && filt.vol_ok && filt.ema200_ok;
+    let e11Html;
+    if (!e11Available) {
+        const blockers = [];
+        if (regime !== 'BULL')     blockers.push(`regimen=${regime}`);
+        if (!filt.vol_ok)          blockers.push('vol alta');
+        if (!filt.ema200_ok)       blockers.push('EMA200 plana/bajista');
+        e11Html = `
+            <div class="conf-row">
+                <div class="conf-name e11">E11</div>
+                <div class="conf-track"><div class="conf-fill blocked" style="width:100%"></div></div>
+                <div class="conf-val blocked">bloqueado</div>
+            </div>
+            <div style="grid-column:1/-1;font-size:10px;color:var(--text3);margin-top:-8px;margin-left:82px">
+                ${blockers.join(' · ')}
+            </div>`;
+    } else if (probE11 == null) {
+        e11Html = `
+            <div class="conf-row">
+                <div class="conf-name e11">E11</div>
+                <div class="conf-track"></div>
+                <div class="conf-val">n/a</div>
+            </div>`;
+    } else {
+        // E11 solo LONG → solo contamos confianza hacia arriba
+        const edge = probE11 - 0.5;
+        const pct  = Math.max(0, Math.min(100, edge / DELTA_E11 * 100));
+        const lbl  = edge <= 0 ? 'contrario (prob<0.5)' : fmt(pct,0)+'% · δ=0.20';
+        const valCls = pct >= 100 ? 'high' : pct < 20 ? 'low' : '';
+        e11Html = `
+            <div class="conf-row">
+                <div class="conf-name e11">E11 LONG</div>
+                <div class="conf-track">
+                    <div class="conf-fill e11" style="width:${pct}%"></div>
+                    <div class="conf-tick" style="left:100%"></div>
+                </div>
+                <div class="conf-val ${valCls}">${lbl}</div>
+            </div>`;
+    }
+
+    // E6: |prob−0.5|/δ, y la direccion depende del signo
+    let e6Html;
+    if (!filt.vol_ok) {
+        e6Html = `
+            <div class="conf-row">
+                <div class="conf-name e6">E6</div>
+                <div class="conf-track"><div class="conf-fill blocked" style="width:100%"></div></div>
+                <div class="conf-val blocked">vol alta</div>
+            </div>`;
+    } else if (probE6 == null) {
+        e6Html = `
+            <div class="conf-row">
+                <div class="conf-name e6">E6</div>
+                <div class="conf-track"></div>
+                <div class="conf-val">n/a</div>
+            </div>`;
+    } else {
+        const dist = Math.abs(probE6 - 0.5);
+        const pct  = Math.max(0, Math.min(100, dist / DELTA_E6 * 100));
+        const goingLong = probE6 > 0.5;
+        const dirLabel  = goingLong ? 'LONG' : (regime !== 'BULL' ? 'SHORT' : 'LONG bloq.');
+        const fillCls   = goingLong ? 'e6-long' : 'e6-short';
+        const valCls    = pct >= 100 ? 'high' : pct < 20 ? 'low' : '';
+        const labelTxt  = fmt(pct,0) + '% · δ=0.30';
+        e6Html = `
+            <div class="conf-row">
+                <div class="conf-name e6">E6 ${dirLabel}</div>
+                <div class="conf-track">
+                    <div class="conf-fill ${fillCls}" style="width:${pct}%"></div>
+                    <div class="conf-tick" style="left:100%"></div>
+                </div>
+                <div class="conf-val ${valCls}">${labelTxt}</div>
+            </div>`;
+    }
+
+    bars.innerHTML = e11Html + e6Html;
+}
+
+// ── Historial de probabilidades ───────────────────────────────────────────────
+let probHistory = [];
+function renderProbHistory() {
+    filterProb(240, document.querySelector('#pbs-prob .pb.on'));
+}
+
+function filterProb(minutes, btn) {
+    if (btn) {
+        document.querySelectorAll('#pbs-prob .pb').forEach(b=>b.classList.remove('on'));
+        btn.classList.add('on');
+    }
+    let data = probHistory;
+    if (minutes > 0 && data.length > 0) {
+        const cutoff = new Date(Date.now() - minutes*60*1000);
+        data = data.filter(e => new Date(e.ts) >= cutoff);
+    }
+    const divId = 'c-prob';
+    const container = document.getElementById(divId);
+    if (!container) return;
+
+    if (!data.length) {
+        container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">Sin histórico de probabilidad · el bot registra una muestra por run</div>';
+        return;
+    }
+    container.innerHTML = '';  // limpiar placeholder
+
+    const xs = data.map(e => new Date(e.ts));
+    const ysE6  = data.map(e => e.prob_e6);
+    const ysE11 = data.map(e => e.prob_e11);
+
+    const traces = [];
+    // E6 siempre, E11 puede faltar
+    if (ysE6.some(v => v != null)) {
+        traces.push({
+            type:'scatter', mode:'lines', x:xs, y:ysE6,
+            name:'prob E6', line:{color:'#6BA3FF', width:1.8}, connectgaps:false,
+            hovertemplate:'%{x|%d %b %H:%M}<br>E6 prob: %{y:.4f}<extra></extra>'
+        });
+    }
+    if (ysE11.some(v => v != null)) {
+        traces.push({
+            type:'scatter', mode:'lines', x:xs, y:ysE11,
+            name:'prob E11', line:{color:'#3DFFA2', width:1.8, dash:'dot'}, connectgaps:false,
+            hovertemplate:'%{x|%d %b %H:%M}<br>E11 prob: %{y:.4f}<extra></extra>'
+        });
+    }
+
+    const xMin = xs[0], xMax = xs[xs.length-1];
+    const shapes = [
+        // zona LONG de E6 (>=0.80)
+        {type:'rect', x0:xMin, x1:xMax, y0:0.80, y1:1.0, fillcolor:'rgba(61,255,162,.05)', line:{width:0}},
+        // zona SHORT de E6 (<=0.20)
+        {type:'rect', x0:xMin, x1:xMax, y0:0.0, y1:0.20, fillcolor:'rgba(255,107,107,.05)', line:{width:0}},
+        // linea 0.5
+        {type:'line', x0:xMin, x1:xMax, y0:0.5, y1:0.5, line:{color:'#5C5C66',width:1,dash:'dash'}},
+        // lineas 0.20 y 0.80 (umbrales E6)
+        {type:'line', x0:xMin, x1:xMax, y0:0.20, y1:0.20, line:{color:'#FF6B6B',width:1,dash:'dot'}},
+        {type:'line', x0:xMin, x1:xMax, y0:0.80, y1:0.80, line:{color:'#3DFFA2',width:1,dash:'dot'}},
+        // lineas 0.30 y 0.70 (umbrales E11)
+        {type:'line', x0:xMin, x1:xMax, y0:0.30, y1:0.30, line:{color:'#6BA3FF',width:1,dash:'dashdot'}},
+        {type:'line', x0:xMin, x1:xMax, y0:0.70, y1:0.70, line:{color:'#6BA3FF',width:1,dash:'dashdot'}},
+    ];
+
+    Plotly.react(divId, traces, {
+        ...L, margin:{l:40,r:12,t:10,b:32},
+        yaxis:{...L.yaxis, range:[0,1], tickvals:[0, 0.2, 0.3, 0.5, 0.7, 0.8, 1], tickfont:{size:9}},
+        shapes,
+        legend:{orientation:'h',yanchor:'bottom',y:1.02,xanchor:'right',x:1,font:{size:9,color:'#A0A0AB'}}
+    }, CFG);
+}
+
+// ── Mercado BTC con trades ────────────────────────────────────────────────────
+let candlesData = [];
+let currentMktRange = 72;  // horas
+
+function renderMarket(d) {
+    candlesData = d.candles_1h || [];
+    document.getElementById('m-price').textContent = '$' + fmt(d.btc_price, 0);
+    document.getElementById('m-price').className   = 'kpi-v';
+    document.getElementById('m-price-ts').textContent = d.updated_at
+        ? new Date(d.updated_at).toLocaleTimeString('es-ES') + ' UTC'
+        : 'en vivo';
+    document.getElementById('m-candles').textContent = candlesData.length || '—';
+
+    if (candlesData.length >= 24) {
+        const last = candlesData[candlesData.length-1].close;
+        const h24  = candlesData[candlesData.length-24].close;
+        const pct  = (last - h24) / h24 * 100;
+        const el   = document.getElementById('m-24h');
+        el.textContent = fmtSign(pct,2)+'%';
+        el.className   = 'kpi-v ' + cc(pct);
+    } else {
+        document.getElementById('m-24h').textContent = '—';
+    }
+
+    filterMkt(currentMktRange, document.querySelector('#pbs-mkt .pb.on'));
+}
+
+function filterMkt(hours, btn) {
+    currentMktRange = hours;
+    if (btn) {
+        document.querySelectorAll('#pbs-mkt .pb').forEach(b=>b.classList.remove('on'));
+        btn.classList.add('on');
+    }
+    const container = document.getElementById('c-mkt');
+    if (!container) return;
+
+    if (!candlesData.length) {
+        container.innerHTML = '<div style="height:100%;display:flex;align-items:center;justify-content:center;color:var(--text3);font-size:11px">Sin datos de velas · el bot las descarga en cada run</div>';
+        return;
+    }
+    container.innerHTML = '';
+
+    // Filtrar velas
+    let candles = candlesData;
+    let cutoff = null;
+    if (hours > 0) {
+        cutoff = new Date(Date.now() - hours*60*60*1000);
+        candles = candles.filter(c => new Date(c.ts) >= cutoff);
+    }
+    if (!candles.length) candles = candlesData.slice(-24);
+
+    const xs = candles.map(c => new Date(c.ts));
+    const opens  = candles.map(c => c.open);
+    const highs  = candles.map(c => c.high);
+    const lows   = candles.map(c => c.low);
+    const closes = candles.map(c => c.close);
+
+    // Filtrar trades dentro del rango visible
+    let tradesInRange = allTrades.filter(t => {
+        if (!t.open_time) return false;
+        const tOpen = new Date(t.open_time);
+        return cutoff ? tOpen >= cutoff : true;
+    });
+    document.getElementById('m-trades-shown').textContent = tradesInRange.length;
+
+    const traces = [];
+
+    // 1) Candlestick BTC
+    traces.push({
+        type:'candlestick',
+        x:xs, open:opens, high:highs, low:lows, close:closes,
+        name:'BTC/USDT',
+        increasing:{line:{color:'#3DFFA2',width:1}, fillcolor:'rgba(61,255,162,.15)'},
+        decreasing:{line:{color:'#FF6B6B',width:1}, fillcolor:'rgba(255,107,107,.15)'},
+        hoverlabel:{bgcolor:'#222228'},
+        showlegend:false
+    });
+
+    // 2) Trades: una línea por trade conectando entry y exit
+    //    color por estrategia + dirección, grosor por resultado
+    const COLORS = {
+        'E11_LONG':  '#3DFFA2',
+        'E6_LONG':   '#6BA3FF',
+        'E6_SHORT':  '#FFD666',
+        'E11_SHORT': '#B28DFF',  // no deberia ocurrir pero por si acaso
+    };
+
+    tradesInRange.forEach((t, idx) => {
+        const strat = (t.strategy || 'E6').toUpperCase();
+        const side  = (t.side || 'LONG').toUpperCase();
+        const key   = `${strat}_${side}`;
+        const baseColor = COLORS[key] || '#A0A0AB';
+        const winColor  = (t.pnl_usdt||0) >= 0 ? '#3DFFA2' : '#FF6B6B';
+
+        const tOpen  = t.open_time  ? new Date(t.open_time)  : null;
+        const tClose = t.close_time ? new Date(t.close_time) : null;
+        if (!tOpen) return;
+
+        // Linea horizontal entry → exit (color = ganador/perdedor)
+        if (tClose) {
+            traces.push({
+                type:'scatter', mode:'lines',
+                x:[tOpen, tClose], y:[t.entry_price, t.exit_price],
+                line:{color:winColor, width:2, dash:(t.pnl_usdt||0)>=0?'solid':'dot'},
+                showlegend:false, hoverinfo:'skip'
+            });
+        }
+
+        // Marcador de entrada: círculo hueco con color estrategia+dirección
+        traces.push({
+            type:'scatter', mode:'markers',
+            x:[tOpen], y:[t.entry_price],
+            marker:{
+                symbol: side==='LONG' ? 'triangle-up' : 'triangle-down',
+                size:14,
+                color:baseColor,
+                line:{color:'#F0F0F2', width:1.5}
+            },
+            showlegend:false,
+            hovertemplate:
+                `<b>${strat} · ${side}</b><br>`+
+                `Entry: $%{y:,.0f}<br>`+
+                `Fecha: %{x|%d %b %H:%M}<br>`+
+                `PnL: ${fmtSign(t.pnl_usdt||0,4)} USDT`+
+                `<extra></extra>`
+        });
+
+        // Marcador de cierre: cuadrado relleno con color win/loss
+        if (tClose) {
+            traces.push({
+                type:'scatter', mode:'markers',
+                x:[tClose], y:[t.exit_price],
+                marker:{
+                    symbol:'square', size:10,
+                    color:winColor,
+                    line:{color:'#F0F0F2', width:1}
+                },
+                showlegend:false,
+                hovertemplate:
+                    `<b>Cierre ${strat}</b><br>`+
+                    `Exit: $%{y:,.0f}<br>`+
+                    `Fecha: %{x|%d %b %H:%M}<br>`+
+                    `PnL: ${fmtSign(t.pnl_usdt||0,4)} USDT<br>`+
+                    `Motivo: ${t.exit_reason||'—'}`+
+                    `<extra></extra>`
+            });
+        }
+    });
+
+    const layout = {
+        ...L,
+        margin:{l:60, r:12, t:10, b:40},
+        xaxis:{
+            ...L.xaxis,
+            rangeslider:{visible:false},
+            type:'date'
+        },
+        yaxis:{...L.yaxis, title:{text:'USDT',standoff:8}, tickformat:',.0f'},
+        hovermode:'closest',
+        showlegend:false
+    };
+
+    Plotly.react('c-mkt', traces, layout, CFG);
 }
 
 // ── Fetch y refresh ───────────────────────────────────────────────────────────
