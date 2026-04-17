@@ -308,7 +308,7 @@ def generar_test_y_probs(df, xgb_bull, xgb_bear):
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 5. Motores de backtest — copia exacta del notebook
+# 5. Motores de backtest — alineados con xgb_filtroprevio_csv_v2_full y tfg_pipeline_sintetizado
 # ═════════════════════════════════════════════════════════════════════════════
 def backtest_e6(df, capital_ini):
     capital = capital_ini
@@ -335,7 +335,7 @@ def backtest_e6(df, capital_ini):
             })
             pos = None
         prob = row["prob"]
-        if not pd.isna(prob) and abs(prob - 0.5) > E6_DELTA:
+        if row.get("active", False) and not pd.isna(prob) and abs(prob - 0.5) > E6_DELTA:
             d = 1 if prob > 0.5 else -1
             size = capital * E6_PCT
             capital -= size * (COMISION + SLIPPAGE)
@@ -353,32 +353,40 @@ def backtest_e11(df, capital_ini):
         ts_next, rnext = rows[i + 1]
         p_sig = rnext["close"]
         if pos is not None:
-            p_ent = pos["entry"]; size = pos["size"]
+            p_ent = pos["entry"]; d = pos["dir"]; size = pos["size"]
             ret = (p_sig - p_ent) / p_ent
-            pnl = size * E11_APAL * ret - size * (COMISION + SLIPPAGE)
+            pnl = size * E11_APAL * d * ret - size * (COMISION + SLIPPAGE)
             if pnl < -0.90 * size:
                 pnl = -0.90 * size
             capital += pnl
             trades.append({
                 "open_ts": pos["open_ts"], "close_ts": ts_next,
-                "dir": "LONG", "entry": round(p_ent, 2), "exit": round(p_sig, 2),
+                "dir": "LONG" if d == 1 else "SHORT",
+                "entry": round(p_ent, 2), "exit": round(p_sig, 2),
                 "size": round(size, 4), "pct": round(pos["pct"], 4),
                 "prob": round(pos["prob"], 4),
                 "pnl": round(pnl, 4), "capital": round(capital, 4),
             })
             pos = None
-        prob = row["prob"]
-        regime = row["regime"]
-        ema_sl = row.get("ema200_slope", 1.0)
-        vol_p = row["vol_percentile"]
-        if (not pd.isna(prob) and prob - 0.5 > E11_DELTA
-                and regime == "BULL" and vol_p <= VOL_UMBRAL
-                and ema_sl > 0):
-            edge = 2 * (prob - 0.5)
+
+        if row.get("active", False):
+            prob = row["prob"]
+            if pd.isna(prob) or abs(prob - 0.5) <= E11_DELTA:
+                continue
+
+            d = 1 if prob > 0.5 else -1
+
+            if d == -1 and not ALLOW_SHORTS:
+                continue
+
+            if d == 1 and row.get("ema200_slope", 1.0) <= 0:
+                continue
+
+            edge = 2 * abs(prob - 0.5)
             pct = min(E11_PCT_MAX, E11_BASE_PCT + edge / E11_KELLY_DIV)
             size = capital * pct
             capital -= size * (COMISION + SLIPPAGE)
-            pos = {"open_ts": ts_next, "entry": p_sig, "size": size, "pct": pct, "prob": prob}
+            pos = {"open_ts": ts_next, "entry": p_sig, "dir": d, "size": size, "pct": pct, "prob": prob}
     return pd.DataFrame(trades) if trades else pd.DataFrame()
 
 
