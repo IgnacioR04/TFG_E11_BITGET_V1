@@ -1,6 +1,6 @@
 {
-  "runs": 269,
-  "last_run": "2026-04-17T19:59:44.883802+00:00",
+  "runs": 270,
+  "last_run": "2026-04-17T20:01:08.708294+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.4791,
     "vol_ok": true,
-    "ema200_slope": -406.248308,
+    "ema200_slope": -406.188607,
     "ema200_ok": false,
-    "prob_e11": 0.4684,
-    "prob_e6": 0.4684,
+    "prob_e11": 0.5183,
+    "prob_e6": 0.5183,
     "in_dead_zone_global": true,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -1380,6 +1380,11 @@
       "ts": "2026-04-17T19:59:44.883802+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-17T20:01:08.708294+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -1388,14 +1393,6 @@
     "unrealized_pl": 0.0
   },
   "candles_1h": [
-    {
-      "ts": "2026-04-07T20:00:00+00:00",
-      "open": 69001.3,
-      "high": 69502.07,
-      "low": 69001.3,
-      "close": 69281.71,
-      "volume": 1242095616.0
-    },
     {
       "ts": "2026-04-07T21:00:00+00:00",
       "open": 69301.41,
@@ -3303,10 +3300,18 @@
     {
       "ts": "2026-04-17T19:00:00+00:00",
       "open": 77210.13,
-      "high": 77518.86,
+      "high": 77524.06,
       "low": 77063.26,
-      "close": 77504.01,
-      "volume": 640360448.0
+      "close": 77517.87,
+      "volume": 828764160.0
+    },
+    {
+      "ts": "2026-04-17T20:00:00+00:00",
+      "open": 77463.88,
+      "high": 77510.01,
+      "low": 77385.75,
+      "close": 77510.01,
+      "volume": 2801664.0
     }
   ],
   "prob_history": [
@@ -5461,6 +5466,14 @@
       "prob_e6": 0.4684,
       "signal": "HOLD",
       "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-17T20:01:08.708294+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.5183,
+      "prob_e6": 0.5183,
+      "signal": "HOLD",
+      "strategy": "NONE"
     }
   ],
   "regime_history": [
@@ -5482,6 +5495,10 @@
     },
     {
       "ts": "2026-04-17T19:00:00+00:00",
+      "regime": "BEAR"
+    },
+    {
+      "ts": "2026-04-17T20:00:00+00:00",
       "regime": "BEAR"
     }
   ]
