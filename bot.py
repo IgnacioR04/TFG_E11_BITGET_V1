@@ -1,8 +1,8 @@
 """
 bot.py — E11 XGBoost Bot
 =========================
-Pipeline: descarga datos 1h → calcula 26 features → filtros HMM/GARCH/dead zone → XGBoost → E11/E6 → ejecuta en Bitget
-Se ejecuta cada minuto via GitHub Actions. Intenta E11 primero y, si no pasa, intenta E6.
+Pipeline: descarga datos 1h → calcula 26 features → filtros HMM/GARCH/EMA200 → XGBoost → Kelly sizing → ejecuta en Bitget
+Se ejecuta cada minuto via GitHub Actions. Solo opera LONG cuando todos los filtros pasan.
 La posicion se abre y cierra en la misma hora (holding = 1 ciclo de senal).
 """
 
@@ -17,6 +17,12 @@ import numpy as np
 import pandas as pd
 import requests
 import yfinance as yf
+from sklearn.preprocessing import StandardScaler
+
+try:
+    from hmmlearn.hmm import GaussianHMM
+except Exception:
+    GaussianHMM = None
 
 # ── Deteccion de modo live ────────────────────────────────────────────────────
 LIVE_MODE = bool(os.environ.get("BITGET_API_KEY"))
@@ -40,6 +46,7 @@ EMA_SPAN        = 200     # periodo EMA tendencia diaria
 EMA_SLOPE_DAYS  = 5       # ventana pendiente EMA200
 ALLOW_SHORTS    = False   # shorts desactivados en E11
 COMISION        = 0.0004  # 0.04% por lado
+YF_SIGNAL_PERIOD = "450d" # para alinear señales con el histórico y permitir EMA200/HMM
 
 # ── Parametros estrategia E6 (fallback) ──────────────────────────────────────
 E6_DELTA   = 0.30    # dead zone E6 — mas selectivo
@@ -165,6 +172,83 @@ def get_bitget_candles(client, symbol, granularity, limit=250):
         print(f"[E11] Error descargando velas {symbol} {granularity}: {e}")
         return pd.DataFrame()
 
+def download_hourly_yfinance(ticker, period=YF_SIGNAL_PERIOD):
+    try:
+        raw = yf.download(ticker, period=period, interval="1h",
+                          auto_adjust=False, progress=False)
+        if raw.empty:
+            return pd.DataFrame()
+        if isinstance(raw.columns, pd.MultiIndex):
+            raw.columns = raw.columns.get_level_values(0)
+        raw.columns = [c.lower().replace(" ", "_") for c in raw.columns]
+        raw.index = pd.to_datetime(raw.index, utc=True)
+        keep = [c for c in ["open", "high", "low", "close", "volume"] if c in raw.columns]
+        out = raw[keep].copy()
+        if "volume" in out.columns:
+            out = out.rename(columns={"volume": "vol"})
+        return out.dropna(subset=["close"]).sort_index()
+    except Exception as e:
+        print(f"[E11] yfinance {ticker} fallo: {e}")
+        return pd.DataFrame()
+
+
+def compute_hmm_regime_filters(df_btc_1h):
+    daily = df_btc_1h.resample("1D").agg({"close":"last", "vol":"sum"}).dropna()
+    if len(daily) < 230:
+        return None
+
+    df_daily = daily.copy()
+    df_daily["log_ret"] = np.log(df_daily["close"] / df_daily["close"].shift(1))
+    df_daily["vol_roll_20d"] = df_daily["log_ret"].rolling(20).std()
+    vm_d = df_daily["vol"].rolling(20).mean()
+    vs_d = df_daily["vol"].rolling(20).std()
+    df_daily["volume_zscore"] = (df_daily["vol"] - vm_d) / (vs_d + 1e-9)
+    df_daily = df_daily.dropna()
+    if len(df_daily) < 120:
+        return None
+
+    if GaussianHMM is None:
+        return None
+
+    X_hmm = df_daily[["log_ret", "vol_roll_20d", "volume_zscore"]].copy()
+    scaler = StandardScaler()
+    X_sc = scaler.fit_transform(X_hmm)
+
+    best_m = None
+    best_s = -np.inf
+    for seed in range(20):
+        try:
+            m = GaussianHMM(n_components=3, covariance_type="full", n_iter=2000, tol=1e-5, random_state=seed)
+            m.fit(X_sc)
+            s = m.score(X_sc)
+            if s > best_s:
+                best_s = s
+                best_m = m
+        except Exception:
+            continue
+
+    if best_m is None:
+        return None
+
+    states = best_m.predict(X_sc)
+    df_daily["state_raw"] = states
+    mean_ret = df_daily.groupby("state_raw")["log_ret"].mean()
+    sorted_s = mean_ret.sort_values().index.tolist()
+    state_map = {sorted_s[0]: "BEAR", sorted_s[1]: "SIDEWAYS", sorted_s[2]: "BULL"}
+    df_daily["regime"] = df_daily["state_raw"].map(state_map)
+    df_daily["vol_percentile"] = df_daily["vol_roll_20d"].expanding().rank(pct=True)
+    ema200 = df_daily["close"].ewm(span=EMA_SPAN, adjust=False).mean()
+    df_daily["ema200_slope"] = ema200 - ema200.shift(EMA_SLOPE_DAYS)
+
+    last = df_daily.iloc[-1]
+    return {
+        "regime": str(last["regime"]),
+        "vol_percentile": float(last["vol_percentile"]),
+        "ema200_slope": float(last["ema200_slope"]),
+        "pipeline_mode": "HMM_REAL"
+    }
+
+
 def get_fear_greed(last_known=None):
     try:
         r = requests.get("https://api.alternative.me/fng/?limit=1&format=json", timeout=8)
@@ -204,9 +288,11 @@ def download_macro_yfinance():
 # ── Calcular features ─────────────────────────────────────────────────────────
 def rsi(series, period=14):
     delta = series.diff()
-    gain  = delta.clip(lower=0).rolling(period).mean()
-    loss  = (-delta.clip(upper=0)).rolling(period).mean()
-    rs    = gain / (loss + 1e-10)
+    gain = delta.clip(lower=0)
+    loss = -delta.clip(upper=0)
+    avg_gain = gain.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
+    avg_loss = loss.ewm(alpha=1/period, adjust=False, min_periods=period).mean()
+    rs = avg_gain / (avg_loss + 1e-10)
     return 100 - (100 / (1 + rs))
 
 def calc_features(df_btc, df_eth, macro, fg_norm):
@@ -267,9 +353,9 @@ def calc_features(df_btc, df_eth, macro, fg_norm):
     df["rsi_14"] = rsi(c, 14)
 
     # ROC
-    df["roc_6"]  = (c - c.shift(6))  / c.shift(6)
-    df["roc_12"] = (c - c.shift(12)) / c.shift(12)
-    df["roc_24"] = (c - c.shift(24)) / c.shift(24)
+    df["roc_6"]  = ((c - c.shift(6))  / c.shift(6)) * 100.0
+    df["roc_12"] = ((c - c.shift(12)) / c.shift(12)) * 100.0
+    df["roc_24"] = ((c - c.shift(24)) / c.shift(24)) * 100.0
     df["mom_12"] = (c - c.shift(12)) / c
 
     # ATR
@@ -382,7 +468,7 @@ def predict_proba(model, x):
 
 # ── Kelly sizing ──────────────────────────────────────────────────────────────
 def kelly_sizing(prob):
-    """Kelly fraccional de E11 segun el notebook sintetizado."""
+    """Kelly fraccional. Usa abs para soportar LONG (prob>0.5) y SHORT (prob<0.5)."""
     edge = 2 * abs(prob - 0.5)
     pct  = BASE_PCT + edge / KELLY_DIV
     return min(pct, PCT_MAX)
@@ -582,26 +668,18 @@ def run():
             print(f"[E11] Error obteniendo precio: {e}")
 
     # ── Descargar datos de mercado ────────────────────────────────────────────
-    print("[E11] Descargando datos 1h BTC y ETH...")
-    df_btc = pd.DataFrame()
-    df_eth = pd.DataFrame()
+    print("[E11] Descargando datos 1h BTC y ETH desde yfinance para alinear señales con histórico...")
+    df_btc = download_hourly_yfinance("BTC-USD")
+    tmp_eth_yf = download_hourly_yfinance("ETH-USD")
+    df_eth = tmp_eth_yf[["close"]] if not tmp_eth_yf.empty else pd.DataFrame()
 
-    if client:
-        df_btc = get_bitget_candles(client, "BTCUSDT", "1H", limit=250)
-        df_eth = get_bitget_candles(client, "ETHUSDT", "1H", limit=250)
-    else:
-        # Fallback yfinance para paper mode
-        try:
-            raw = yf.download("BTC-USD", period="30d", interval="1h",
-                              auto_adjust=False, progress=False)
-            if isinstance(raw.columns, pd.MultiIndex):
-                raw.columns = raw.columns.get_level_values(0)
-            raw.index = pd.to_datetime(raw.index, utc=True)
-            df_btc = raw.rename(columns={"Open":"open","High":"high","Low":"low",
-                                          "Close":"close","Volume":"vol"})
-            btc_price = float(df_btc["close"].iloc[-1])
-        except Exception as e:
-            print(f"[E11] Error descargando datos fallback: {e}")
+    if df_btc.empty and client:
+        print("[E11] yfinance fallo en BTC, usando Bitget como fallback")
+        df_btc = get_bitget_candles(client, "BTCUSDT", "1H", limit=1200)
+    if df_eth.empty and client:
+        print("[E11] yfinance fallo en ETH, usando Bitget como fallback")
+        tmp_eth = get_bitget_candles(client, "ETHUSDT", "1H", limit=1200)
+        df_eth = tmp_eth[["close"]] if not tmp_eth.empty else pd.DataFrame()
 
     if df_btc.empty:
         print("[E11] Sin datos BTC — abortando")
@@ -625,6 +703,7 @@ def run():
             "high":  round(float(row_c["high"]), 2),
             "low":   round(float(row_c["low"]), 2),
             "close": round(float(row_c["close"]), 2),
+            "volume": round(float(row_c.get("vol", 0.0)), 4),
         })
     state["candles_1h"] = candles_snapshot
 
@@ -695,19 +774,29 @@ def run():
     filters  = {}
 
     # Filtros comunes a ambas estrategias
-    regime    = get_regime(df_btc)
-    vol_pct   = get_vol_percentile(df_btc)
-    ema_slope = get_ema200_slope(df_btc)
+    hmm_filters = compute_hmm_regime_filters(df_btc)
+    if hmm_filters is not None:
+        regime = hmm_filters["regime"]
+        vol_pct = hmm_filters["vol_percentile"]
+        ema_slope = hmm_filters["ema200_slope"]
+        pipeline_mode = hmm_filters["pipeline_mode"]
+    else:
+        regime = get_regime(df_btc)
+        vol_pct = get_vol_percentile(df_btc)
+        ema_slope = get_ema200_slope(df_btc)
+        pipeline_mode = "HEURISTIC_FALLBACK"
+
     vol_ok    = vol_pct <= GARCH_VOL_UMBRAL
     ema_ok    = ema_slope > 0
 
+    filters["pipeline_mode"] = pipeline_mode
     filters["regime"]        = regime
     filters["vol_percentile"]= round(vol_pct, 4)
     filters["vol_ok"]        = vol_ok
-    filters["ema200_slope"]  = round(ema_slope, 2)
+    filters["ema200_slope"]  = round(ema_slope, 6)
     filters["ema200_ok"]     = ema_ok
 
-    print(f"[BOT] Regimen: {regime}  |  Vol: {vol_pct:.3f}  |  EMA200 slope: {ema_slope:.2f}")
+    print(f"[BOT] Pipeline: {pipeline_mode} | Regimen: {regime} | Vol: {vol_pct:.3f} | EMA200 slope: {ema_slope:.6f}")
 
     # ── Seleccion de submodelo segun regimen HMM (igual que pipeline TFG) ──────
     # BULL -> xgb_bull.pkl    |    BEAR/SIDEWAYS -> xgb_bear.pkl
