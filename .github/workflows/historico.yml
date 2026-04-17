@@ -1,0 +1,51 @@
+name: Generar historico backtest
+
+on:
+  workflow_dispatch:
+  schedule:
+    # Diario a las 06:00 UTC (antes de que empiece la sesion europea)
+    - cron: "0 6 * * *"
+
+jobs:
+  generar:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          pip install --quiet \
+            numpy \
+            pandas \
+            yfinance \
+            hmmlearn \
+            xgboost \
+            scikit-learn
+
+      - name: Generar historical_trades.json
+        run: python generar_historico.py
+
+      - name: Commit and push result
+        run: |
+          git config user.name "e11-bot-historico"
+          git config user.email "e11-bot-historico@noreply.github.com"
+          git fetch origin main
+          git checkout main
+          git pull origin main --ff-only || git reset --hard origin/main
+          git add docs/historical_trades.json
+          git diff --cached --quiet || git commit -m "historico: refresh [$(date -u '+%Y-%m-%d %H:%M UTC')]"
+          git push origin main
