@@ -563,7 +563,7 @@ footer a:hover{color:var(--text);}
     <div class="cc-h">
       <div>
         <div class="cc-t">BTC/USDT · bot vivo + marcadores de trades</div>
-        <div class="cc-sub">candles 1h binance · triangulos = trades del bot</div>
+        <div class="cc-sub">candles 1h binance · bandas = regimen HMM · triangulos = trades del bot</div>
       </div>
       <div class="pbs" id="mk-pbs">
         <button class="pb" data-r="1">1D</button>
@@ -579,6 +579,9 @@ footer a:hover{color:var(--text);}
 
   <div class="lg">
     <span class="lg-t">Leyenda</span>
+    <span class="lg-it"><span class="lg-dot" style="background:rgba(0,208,132,.25);"></span>Regimen BULL</span>
+    <span class="lg-it"><span class="lg-dot" style="background:rgba(255,90,95,.25);"></span>Regimen BEAR</span>
+    <span class="lg-it"><span class="lg-dot" style="background:rgba(255,184,71,.25);"></span>Regimen SIDEWAYS</span>
     <span class="lg-it"><span class="lg-tri-up" style="border-bottom:9px solid #00D084;"></span>E11 · LONG</span>
     <span class="lg-it"><span class="lg-tri-dn" style="border-top:9px solid #FF5A5F;"></span>E11 · SHORT</span>
     <span class="lg-it"><span class="lg-tri-up" style="border-bottom:9px solid #5B8DEF;"></span>E6 · LONG</span>
@@ -1261,6 +1264,7 @@ function normalizeBot(raw){
       t: h.ts, equity: h.equity, unrealPL: h.unrealPL,
     })),
     candles_1h: raw.candles_1h || [],
+    regime_history: raw.regime_history || [],
     btc_price: raw.btc_price,
   };
 }
@@ -1735,8 +1739,14 @@ function renderMarket(){
   });
 
   prepPlot('mk-chart');
+  // Bandas de regimen HMM en el fondo
+  const regHist = (b && b.regime_history) ? b.regime_history : [];
+  const spans = regimeSpansFromHistory(regHist, tStart, tEnd);
+  const shapes = regimeBandShapes(spans, tStart, tEnd);
+
   Plotly.newPlot('mk-chart', traces, {
     ...LAYOUT_BASE,
+    shapes: shapes,
     xaxis:{...LAYOUT_BASE.xaxis, rangeslider:{visible:false}},
     yaxis:{...LAYOUT_BASE.yaxis, title:{text:'USDT',font:{size:10,color:'#5A5F74'}}},
     margin:{l:60,r:14,t:8,b:36},
@@ -1746,6 +1756,49 @@ function renderMarket(){
 function tradeColor(strat, side){
   if(strat==='E11') return side==='LONG' ? COLORS.e11_long : COLORS.e11_short;
   return side==='LONG' ? COLORS.e6_long : COLORS.e6_short;
+}
+
+/* Convierte regime_history [{ts,regime}] en spans continuos [{start,end,regime}]
+   y los corta al rango visible. */
+function regimeSpansFromHistory(history, tStart, tEnd){
+  if(!history || !history.length) return [];
+  const spans = [];
+  let current = null, start = null;
+  for(const h of history){
+    if(h.regime !== current){
+      if(current !== null && start !== null){
+        spans.push({start, end:h.ts, regime:current});
+      }
+      current = h.regime;
+      start = h.ts;
+    }
+  }
+  // Ultimo tramo: cerramos en el fin del rango visible
+  if(current !== null && start !== null){
+    spans.push({start, end:new Date(tEnd).toISOString(), regime:current});
+  }
+  // Filtrar spans que caigan fuera del rango
+  return spans.filter(s=>{
+    const se = new Date(s.start).getTime();
+    const ee = new Date(s.end).getTime();
+    return !(ee < tStart || se > tEnd);
+  });
+}
+
+function regimeBandShapes(spans, tStart, tEnd){
+  return spans.map(s=>{
+    const se = Math.max(new Date(s.start).getTime(), tStart);
+    const ee = Math.min(new Date(s.end).getTime(), tEnd);
+    const col = s.regime==='BULL' ? COLORS.bull
+              : s.regime==='BEAR' ? COLORS.bear
+              : COLORS.side;
+    return {
+      type:'rect', xref:'x', yref:'paper',
+      x0: new Date(se).toISOString(),
+      x1: new Date(ee).toISOString(),
+      y0:0, y1:1, fillcolor:col, line:{width:0}, layer:'below',
+    };
+  });
 }
 
 function filterCandles(candles, days){
