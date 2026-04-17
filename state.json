@@ -1,6 +1,10 @@
 {
   "runs": 68,
+<<<<<<< Updated upstream
   "last_run": "2026-04-17T01:09:39.742175+00:00",
+=======
+  "last_run": "2026-04-17T01:09:44.630340+00:00",
+>>>>>>> Stashed changes
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -368,7 +372,11 @@
       "unrealPL": 0.0
     },
     {
+<<<<<<< Updated upstream
       "ts": "2026-04-17T01:09:39.742175+00:00",
+=======
+      "ts": "2026-04-17T01:09:44.630340+00:00",
+>>>>>>> Stashed changes
       "equity": 57.942,
       "unrealPL": 0.0
     }
