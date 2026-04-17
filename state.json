@@ -1,6 +1,6 @@
 {
-  "runs": 45,
-  "last_run": "2026-04-17T15:59:49.631811+00:00",
+  "runs": 46,
+  "last_run": "2026-04-17T16:01:07.255496+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,12 +23,12 @@
     "regime": "BEAR",
     "vol_percentile": 0.493,
     "vol_ok": true,
-    "ema200_slope": -411.40888,
+    "ema200_slope": -411.74439,
     "ema200_ok": false,
-    "prob_e11": 0.2934,
-    "prob_e6": 0.2934,
+    "prob_e11": 0.3658,
+    "prob_e6": 0.3658,
     "in_dead_zone_global": false,
-    "in_dead_zone_e11": false,
+    "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
     "signal": "HOLD",
     "strategy": "NONE",
@@ -260,6 +260,11 @@
       "ts": "2026-04-17T15:59:49.631811+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-17T16:01:07.255496+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -268,14 +273,6 @@
     "unrealized_pl": 0.0
   },
   "candles_1h": [
-    {
-      "ts": "2026-04-07T16:00:00+00:00",
-      "open": 68151.71,
-      "high": 68366.7,
-      "low": 68102.55,
-      "close": 68216.59,
-      "volume": 0.0
-    },
     {
       "ts": "2026-04-07T17:00:00+00:00",
       "open": 68213.93,
@@ -2185,8 +2182,16 @@
       "open": 77977.51,
       "high": 78060.09,
       "low": 77497.0,
-      "close": 77837.73,
-      "volume": 3957776384.0
+      "close": 77838.44,
+      "volume": 4071022592.0
+    },
+    {
+      "ts": "2026-04-17T16:00:00+00:00",
+      "open": 77844.04,
+      "high": 77849.32,
+      "low": 77778.76,
+      "close": 77804.01,
+      "volume": 3624960.0
     }
   ],
   "prob_history": [
@@ -2549,12 +2554,24 @@
       "prob_e6": 0.2934,
       "signal": "HOLD",
       "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-17T16:01:07.255496+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.3658,
+      "prob_e6": 0.3658,
+      "signal": "HOLD",
+      "strategy": "NONE"
     }
   ],
   "regime_history": [
     {
       "ts": "2026-04-17T15:00:00+00:00",
       "regime": "SIDEWAYS"
+    },
+    {
+      "ts": "2026-04-17T16:00:00+00:00",
+      "regime": "BEAR"
     }
   ]
 }
