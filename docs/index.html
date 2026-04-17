@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0">
-<title>MEC Bot · Ignacio Rodriguez</title>
+<title>E11 Bot · Ignacio Rodriguez</title>
 <script src="https://cdn.plot.ly/plotly-2.35.0.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -365,9 +365,9 @@ footer a:hover{color:var(--text);}
 <!-- HEADER -->
 <header class="hdr">
   <div class="hdr-brand">
-    <div class="hdr-logo">M</div>
+    <div class="hdr-logo">E</div>
     <div class="hdr-title">
-      <h1>MEC Bot</h1>
+      <h1>E11 Bot</h1>
       <span>HMM · GARCH · XGBoost · BTC/USDT Perp</span>
     </div>
   </div>
@@ -412,7 +412,7 @@ footer a:hover{color:var(--text);}
   <button class="tab" data-pane="strats">Estrategias</button>
   <button class="tab" data-pane="context">Contexto</button>
   <button class="tab" data-pane="pipeline">Pipeline</button>
-  <button class="tab" data-pane="trades">Trades</button>
+  <button class="tab" data-pane="trades">Trades live</button>
   <button class="tab" data-pane="equity">Equity</button>
 </div>
 
@@ -938,6 +938,16 @@ footer a:hover{color:var(--text);}
 
 <!-- ========== TRADES ========== -->
 <section class="pane" id="pane-trades">
+  <div class="cc" style="background:rgba(0,208,132,.04);border-color:rgba(0,208,132,.2);">
+    <div style="padding:14px 18px;display:flex;align-items:center;gap:10px;">
+      <span style="width:4px;height:22px;background:var(--neon);border-radius:2px;"></span>
+      <div>
+        <div style="font-weight:600;font-size:13px;color:var(--neon);">Trades ejecutados en vivo</div>
+        <div style="font-size:11px;color:var(--text2);margin-top:2px;">Solo trades reales del bot en Bitget. Para ver los trades del backtest sobre el test set, abre la pestaña <strong style="color:var(--text);">Estrategias</strong>.</div>
+      </div>
+    </div>
+  </div>
+
   <div class="kpis">
     <div class="kpi"><div class="kpi-l">Total trades</div><div class="kpi-v mono" id="tr-n">—</div><div class="kpi-s">ejecutados</div></div>
     <div class="kpi"><div class="kpi-l">Win rate</div><div class="kpi-v mono" id="tr-wr">—</div><div class="kpi-s">% ganadores</div></div>
@@ -1069,14 +1079,14 @@ footer a:hover{color:var(--text);}
   </div>
 
   <div class="privacy">
-    <strong>Sobre el bot.</strong> MEC Bot es un bot automatizado de trading BTC/USDT Perpetuos en Bitget. Se ejecuta cada minuto via GitHub Actions. El codigo y los modelos son privados y forman parte del TFG.
+    <strong>Sobre el bot.</strong> E11 Bot es un bot automatizado de trading BTC/USDT Perpetuos en Bitget. Se ejecuta cada minuto via GitHub Actions. El codigo y los modelos son privados y forman parte del TFG.
   </div>
 </aside>
 
 </div>
 
 <footer>
-  <span>MEC Bot · HMM + GARCH + XGBoost</span>
+  <span>E11 Bot · HMM + GARCH + XGBoost</span>
   <span class="dot-sep"></span>
   <span>BTC/USDT Perp · Bitget</span>
   <span class="dot-sep"></span>
