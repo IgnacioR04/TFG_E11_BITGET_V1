@@ -1,6 +1,6 @@
 {
-  "runs": 490,
-  "last_run": "2026-04-17T23:59:49.778284+00:00",
+  "runs": 491,
+  "last_run": "2026-04-18T00:01:06.548525+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -21,18 +21,18 @@
   "last_filters": {
     "pipeline_mode": "HMM_REAL",
     "regime": "BEAR",
-    "vol_percentile": 0.4674,
+    "vol_percentile": 0.4698,
     "vol_ok": true,
-    "ema200_slope": -409.862036,
+    "ema200_slope": -376.661777,
     "ema200_ok": false,
-    "prob_e11": 0.6069,
-    "prob_e6": 0.6069,
+    "prob_e11": 0.5963,
+    "prob_e6": 0.5963,
     "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
     "signal": "HOLD",
     "strategy": "NONE",
-    "fear_greed_raw": 21.0
+    "fear_greed_raw": 26.0
   },
   "trades": [],
   "equity_history": [
@@ -2480,6 +2480,11 @@
       "ts": "2026-04-17T23:59:49.778284+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-18T00:01:06.548525+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -4396,17 +4401,17 @@
       "ts": "2026-04-17T22:00:00+00:00",
       "open": 77473.13,
       "high": 77551.52,
-      "low": 77297.98,
-      "close": 77339.94,
-      "volume": 1460895744.0
+      "low": 77351.25,
+      "close": 77385.17,
+      "volume": 0.0
     },
     {
-      "ts": "2026-04-17T23:00:00+00:00",
-      "open": 77328.01,
-      "high": 77336.24,
-      "low": 76941.99,
-      "close": 77140.83,
-      "volume": 1104945152.0
+      "ts": "2026-04-18T00:00:00+00:00",
+      "open": 77073.75,
+      "high": 77129.99,
+      "low": 77071.51,
+      "close": 77129.99,
+      "volume": 0.0
     }
   ],
   "prob_history": [
@@ -8321,6 +8326,14 @@
       "prob_e6": 0.6069,
       "signal": "HOLD",
       "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-18T00:01:06.548525+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.5963,
+      "prob_e6": 0.5963,
+      "signal": "HOLD",
+      "strategy": "NONE"
     }
   ],
   "regime_history": [
@@ -8358,6 +8371,10 @@
     },
     {
       "ts": "2026-04-17T23:00:00+00:00",
+      "regime": "BEAR"
+    },
+    {
+      "ts": "2026-04-18T00:00:00+00:00",
       "regime": "BEAR"
     }
   ]
