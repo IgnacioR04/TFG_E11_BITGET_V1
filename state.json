@@ -1,6 +1,6 @@
 {
-  "runs": 3114,
-  "last_run": "2026-04-19T22:19:49.637697+00:00",
+  "runs": 3115,
+  "last_run": "2026-04-19T22:20:54.298745+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -21,12 +21,12 @@
   "last_filters": {
     "pipeline_mode": "HMM_REAL",
     "regime": "BEAR",
-    "vol_percentile": 0.5349,
+    "vol_percentile": 0.5488,
     "vol_ok": true,
-    "ema200_slope": -390.626545,
+    "ema200_slope": -392.104079,
     "ema200_ok": false,
-    "prob_e11": 0.6444,
-    "prob_e6": 0.6444,
+    "prob_e11": 0.6619,
+    "prob_e6": 0.6619,
     "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-18T10:56:52.537182+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-18T10:57:45.625282+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-19T22:19:49.637697+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-19T22:20:54.298745+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11960,19 +11960,11 @@
       "open": 74423.99,
       "high": 74438.58,
       "low": 73853.95,
-      "close": 74092.96,
-      "volume": 1293729792.0
+      "close": 73944.47,
+      "volume": 1304008704.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-19T13:24:54.032614+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.4158,
-      "prob_e6": 0.4158,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-19T13:25:53.964891+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.6444,
       "prob_e6": 0.6444,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-19T22:20:54.298745+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.6619,
+      "prob_e6": 0.6619,
       "signal": "HOLD",
       "strategy": "NONE"
     }
