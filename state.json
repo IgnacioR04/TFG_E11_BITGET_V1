@@ -1,6 +1,6 @@
 {
-  "runs": 3583,
-  "last_run": "2026-04-20T06:41:00.614041+00:00",
+  "runs": 3584,
+  "last_run": "2026-04-20T06:42:51.107110+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.5302,
     "vol_ok": true,
-    "ema200_slope": -390.476836,
+    "ema200_slope": -389.471084,
     "ema200_ok": false,
-    "prob_e11": 0.4831,
-    "prob_e6": 0.4831,
+    "prob_e11": 0.4784,
+    "prob_e6": 0.4784,
     "in_dead_zone_global": true,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-18T19:06:32.167017+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-18T19:07:45.953618+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-20T06:41:00.614041+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-20T06:42:51.107110+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11958,21 +11958,13 @@
     {
       "ts": "2026-04-20T06:00:00+00:00",
       "open": 74315.83,
-      "high": 74730.65,
+      "high": 74910.16,
       "low": 74283.54,
-      "close": 74730.65,
-      "volume": 58951680.0
+      "close": 74831.73,
+      "volume": 73844736.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-19T21:47:51.459117+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.5613,
-      "prob_e6": 0.5613,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-19T21:48:48.191298+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.4831,
       "prob_e6": 0.4831,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-20T06:42:51.107110+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.4784,
+      "prob_e6": 0.4784,
       "signal": "HOLD",
       "strategy": "NONE"
     }
