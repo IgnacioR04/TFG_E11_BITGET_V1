@@ -1,9 +1,9 @@
 {
-  "runs": 4403,
-  "last_run": "2026-04-20T22:34:51.228744+00:00",
+  "runs": 4404,
+  "last_run": "2026-04-20T22:35:59.859871+00:00",
   "paused": false,
   "pause_reason": null,
-  "consecutive_errors": 0,
+  "consecutive_errors": 1,
   "consecutive_losses": 0,
   "initial_equity": 57.942,
   "position": {
