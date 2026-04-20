@@ -1,6 +1,6 @@
 {
-  "runs": 3414,
-  "last_run": "2026-04-20T03:38:48.253689+00:00",
+  "runs": 3415,
+  "last_run": "2026-04-20T03:39:53.788655+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,11 +23,11 @@
     "regime": "BEAR",
     "vol_percentile": 0.5302,
     "vol_ok": true,
-    "ema200_slope": -392.450872,
+    "ema200_slope": -392.101525,
     "ema200_ok": false,
-    "prob_e11": 0.463,
-    "prob_e6": 0.463,
-    "in_dead_zone_global": true,
+    "prob_e11": 0.4478,
+    "prob_e6": 0.4478,
+    "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
     "signal": "HOLD",
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-18T16:12:46.775417+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-18T16:13:46.202424+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-20T03:38:48.253689+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-20T03:39:53.788655+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11960,19 +11960,11 @@
       "open": 74448.27,
       "high": 74614.0,
       "low": 74390.13,
-      "close": 74532.26,
-      "volume": 758618112.0
+      "close": 74567.37,
+      "volume": 760578048.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-19T18:43:52.933875+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.6083,
-      "prob_e6": 0.6083,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-19T18:44:46.925244+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.463,
       "prob_e6": 0.463,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-20T03:39:53.788655+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.4478,
+      "prob_e6": 0.4478,
       "signal": "HOLD",
       "strategy": "NONE"
     }
