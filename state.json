@@ -1,6 +1,6 @@
 {
-  "runs": 4431,
-  "last_run": "2026-04-20T23:04:53.357065+00:00",
+  "runs": 4432,
+  "last_run": "2026-04-20T23:05:54.113882+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.5698,
     "vol_ok": true,
-    "ema200_slope": -379.269436,
+    "ema200_slope": -380.135107,
     "ema200_ok": false,
-    "prob_e11": 0.4775,
-    "prob_e6": 0.4775,
+    "prob_e11": 0.4784,
+    "prob_e6": 0.4784,
     "in_dead_zone_global": true,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-19T10:08:47.775353+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-19T10:09:46.055513+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-20T23:04:53.357065+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-20T23:05:54.113882+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11959,20 +11959,12 @@
       "ts": "2026-04-20T23:00:00+00:00",
       "open": 75912.77,
       "high": 75937.73,
-      "low": 75839.57,
-      "close": 75856.99,
-      "volume": 925696.0
+      "low": 75769.99,
+      "close": 75769.99,
+      "volume": 9605120.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-20T13:15:54.827429+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.4922,
-      "prob_e6": 0.4922,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-20T13:16:57.217202+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.4775,
       "prob_e6": 0.4775,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-20T23:05:54.113882+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.4784,
+      "prob_e6": 0.4784,
       "signal": "HOLD",
       "strategy": "NONE"
     }
