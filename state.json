@@ -1,6 +1,6 @@
 {
-  "runs": 3970,
-  "last_run": "2026-04-20T14:01:10.071265+00:00",
+  "runs": 3971,
+  "last_run": "2026-04-20T14:02:54.437313+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.5395,
     "vol_ok": true,
-    "ema200_slope": -385.944887,
+    "ema200_slope": -386.048276,
     "ema200_ok": false,
-    "prob_e11": 0.5246,
-    "prob_e6": 0.5246,
+    "prob_e11": 0.5244,
+    "prob_e6": 0.5244,
     "in_dead_zone_global": true,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-19T01:54:46.564967+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-19T01:55:51.772148+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-20T14:01:10.071265+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-20T14:02:54.437313+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11959,20 +11959,12 @@
       "ts": "2026-04-20T14:00:00+00:00",
       "open": 75300.0,
       "high": 75301.86,
-      "low": 75186.11,
-      "close": 75186.11,
-      "volume": 6152192.0
+      "low": 75146.89,
+      "close": 75175.72,
+      "volume": 16809984.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-20T04:38:55.152820+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.5359,
-      "prob_e6": 0.5359,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-20T04:39:50.545418+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.5246,
       "prob_e6": 0.5246,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-20T14:02:54.437313+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.5244,
+      "prob_e6": 0.5244,
       "signal": "HOLD",
       "strategy": "NONE"
     }
