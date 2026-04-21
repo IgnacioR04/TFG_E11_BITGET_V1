@@ -1,6 +1,6 @@
 {
-  "runs": 5254,
-  "last_run": "2026-04-21T17:06:56.949064+00:00",
+  "runs": 5255,
+  "last_run": "2026-04-21T17:08:55.773463+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.5721,
     "vol_ok": true,
-    "ema200_slope": -369.965777,
+    "ema200_slope": -370.34925,
     "ema200_ok": false,
-    "prob_e11": 0.6449,
-    "prob_e6": 0.6449,
+    "prob_e11": 0.6511,
+    "prob_e6": 0.6511,
     "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-20T00:45:57.125132+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-20T00:46:49.490955+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-21T17:06:56.949064+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-21T17:08:55.773463+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11959,20 +11959,12 @@
       "ts": "2026-04-21T17:00:00+00:00",
       "open": 75782.52,
       "high": 75840.34,
-      "low": 75615.31,
-      "close": 75623.55,
-      "volume": 43216896.0
+      "low": 75585.01,
+      "close": 75585.01,
+      "volume": 44982272.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-21T05:53:55.708877+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.4955,
-      "prob_e6": 0.4955,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-21T05:54:55.817849+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.6449,
       "prob_e6": 0.6449,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-21T17:08:55.773463+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.6511,
+      "prob_e6": 0.6511,
       "signal": "HOLD",
       "strategy": "NONE"
     }
