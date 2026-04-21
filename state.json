@@ -1,6 +1,6 @@
 {
-  "runs": 5333,
-  "last_run": "2026-04-21T18:53:56.159564+00:00",
+  "runs": 5334,
+  "last_run": "2026-04-21T18:54:57.576215+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -21,12 +21,12 @@
   "last_filters": {
     "pipeline_mode": "HMM_REAL",
     "regime": "BEAR",
-    "vol_percentile": 0.5791,
+    "vol_percentile": 0.5767,
     "vol_ok": true,
-    "ema200_slope": -372.960491,
+    "ema200_slope": -371.368762,
     "ema200_ok": false,
-    "prob_e11": 0.6458,
-    "prob_e6": 0.6458,
+    "prob_e11": 0.6211,
+    "prob_e6": 0.6211,
     "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-20T02:10:57.733748+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-20T02:11:49.411452+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-21T18:53:56.159564+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-21T18:54:57.576215+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11960,19 +11960,11 @@
       "open": 75541.95,
       "high": 75664.99,
       "low": 75322.58,
-      "close": 75322.58,
+      "close": 75482.55,
       "volume": 1338757120.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-21T07:33:52.052177+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.4133,
-      "prob_e6": 0.4133,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-21T07:34:52.000225+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.6458,
       "prob_e6": 0.6458,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-21T18:54:57.576215+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.6211,
+      "prob_e6": 0.6211,
       "signal": "HOLD",
       "strategy": "NONE"
     }
