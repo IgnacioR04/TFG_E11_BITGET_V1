@@ -583,7 +583,7 @@ footer a:hover{color:var(--text);}
     <span class="lg-it"><span class="lg-dot" style="background:rgba(255,90,95,.25);"></span>Regimen BEAR</span>
     <span class="lg-it"><span class="lg-dot" style="background:rgba(255,184,71,.25);"></span>Regimen SIDEWAYS</span>
     <span class="lg-it"><span class="lg-tri-up" style="border-bottom:9px solid #00D084;"></span>E11 · LONG</span>
-    <span class="lg-it"><span class="lg-tri-dn" style="border-top:9px solid #FF5A5F;"></span>E11 · SHORT</span>
+    <span class="lg-it"><span class="lg-tri-dn" style="border-top:9px solid #FF5A5F;"></span></span>
     <span class="lg-it"><span class="lg-tri-up" style="border-bottom:9px solid #5B8DEF;"></span>E6 · LONG</span>
     <span class="lg-it"><span class="lg-tri-dn" style="border-top:9px solid #FFB847;"></span>E6 · SHORT</span>
     <span class="lg-it"><span class="lg-dot" style="background:#fff;border:1px solid var(--text3);"></span>Apertura</span>
@@ -610,8 +610,8 @@ footer a:hover{color:var(--text);}
       <div class="strat-h">
         <span class="strat-badge">E11 · Primary</span>
       </div>
-      <div class="strat-t">Solo LONG · Kelly</div>
-      <div class="strat-sub">delta=0.20 · lev 5x · 20-55% · activa si Vol OK + macro_up</div>
+      <div class="strat-t">Solo LONG · Kelly · solo BULL</div>
+      <div class="strat-sub">delta=0.20 · lev 5x · 20-55% · activa si Vol OK + regimen BULL + EMA200 slope positiva</div>
       <div class="strat-stats">
         <div>
           <div class="strat-stat-l">Trades</div>
@@ -701,8 +701,7 @@ footer a:hover{color:var(--text);}
     <span class="lg-it"><span class="lg-dot" style="background:rgba(255,90,95,.25);"></span>Regimen BEAR</span>
     <span class="lg-it"><span class="lg-dot" style="background:rgba(255,184,71,.25);"></span>Regimen SIDEWAYS</span>
     <span class="lg-it"><span class="lg-tri-up" style="border-bottom:9px solid #00D084;"></span>E11 LONG</span>
-    <span class="lg-it"><span class="lg-tri-dn" style="border-top:9px solid #FF5A5F;"></span>E11 SHORT</span>
-    <span class="lg-it"><span class="lg-tri-up" style="border-bottom:9px solid #5B8DEF;"></span>E6 LONG</span>
+        <span class="lg-it"><span class="lg-tri-up" style="border-bottom:9px solid #5B8DEF;"></span>E6 LONG</span>
     <span class="lg-it"><span class="lg-tri-dn" style="border-top:9px solid #FFB847;"></span>E6 SHORT</span>
   </div>
 
@@ -1237,15 +1236,18 @@ function normalizeBot(raw){
       vol_ok: filters.vol_ok,
       ema200_slope: filters.ema200_slope,
       ema200_ok: filters.ema200_ok,
-      prob_e11: raw.last_prob,
-      prob_e6: filters.prob_e6,
+      prob_e11: num(filters.prob_e11, raw.last_prob),
+      prob_e6: num(filters.prob_e6, raw.last_prob),
+      in_dead_zone_e11: filters.in_dead_zone_e11,
       in_dead_zone_e6: filters.in_dead_zone_e6,
+      regime_e11_ok: filters.regime_e11_ok,
       fear_greed: filters.fear_greed_raw,
+      submodel: filters.submodel,
     },
     signal: {
       action: filters.signal,
       strategy: filters.strategy,
-      kelly_pct: raw.kelly_pct || null,
+      kelly_pct: num(filters.pct_kelly, raw.kelly_pct),
     },
     stats: {
       pnl_total: raw.total_pnl_usdt || 0,
@@ -2186,10 +2188,10 @@ function renderPipeline(){
 
   // E11 nodes
   const regimeNow = (p.regime||'').toUpperCase();
-  const regBull = regimeNow==='BULL';
-  const modelName = regBull ? 'xgb_bull' : 'xgb_bear';
-  const volOk = p.vol_pct!==undefined ? p.vol_pct<=0.80 : false;
-  const emaUp = p.ema200_slope>0;
+  const regBull = p.regime_e11_ok !== undefined ? !!p.regime_e11_ok : regimeNow==='BULL';
+  const modelName = p.submodel || (regBull ? 'xgb_bull' : 'xgb_bear');
+  const volOk = p.vol_ok !== undefined ? !!p.vol_ok : (p.vol_pct!==undefined ? p.vol_pct<=0.80 : false);
+  const emaUp = p.ema200_ok !== undefined ? !!p.ema200_ok : (p.ema200_slope>0);
   const probE11 = p.prob_e11;
   const eme11 = document.getElementById('pp-e11-reg');
   if(eme11){
@@ -2242,13 +2244,15 @@ function renderPipeline(){
   document.getElementById('e-e11-1').style.color = COLORS.green;
   setTxt('e-e11-2', p.vol_pct!==undefined ? (volOk?'✓ ':'✗ ')+fmt(p.vol_pct,3) : '—');
   document.getElementById('e-e11-2').style.color = volOk?COLORS.green:COLORS.red;
-  setTxt('e-e11-3', p.ema200_slope!==undefined ? (emaUp?'✓ slope=+1':'✗ slope=-1') : '—');
-  document.getElementById('e-e11-3').style.color = emaUp?COLORS.green:COLORS.red;
-  setTxt('e-e11-4', probE11!==null && probE11!==undefined ? fmt(probE11,4) : 'No calculado');
-  setTxt('e-e11-5', probE11!==null && probE11!==undefined ? ((probE11>0.30 && probE11<0.70)?'dentro':'fuera') : '—');
+  setTxt('e-e11-3', regBull ? '✓ BULL' : '✗ '+(regimeNow||'—'));
+  document.getElementById('e-e11-3').style.color = regBull?COLORS.green:COLORS.red;
+  setTxt('e-e11-4', p.ema200_slope!==undefined ? (emaUp ? '✓ '+fmt(p.ema200_slope,6) : '✗ '+fmt(p.ema200_slope,6)) : '—');
+  document.getElementById('e-e11-4').style.color = emaUp?COLORS.green:COLORS.red;
+  setTxt('e-e11-5', probE11!==null && probE11!==undefined ? fmt(probE11,4) : 'No calculado');
+  setTxt('e-e11-6', probE11!==null && probE11!==undefined ? ((p.in_dead_zone_e11 ? 'dentro' : 'fuera')) : '—');
   const kellyPct = s.kelly_pct!==undefined ? s.kelly_pct : null;
-  setTxt('e-e11-6', kellyPct!==null ? fmt(kellyPct*100,1)+'%' : '—');
-  const sigE11El = document.getElementById('e-e11-7');
+  setTxt('e-e11-7', kellyPct!==null ? fmt(kellyPct*100,1)+'%' : '—');
+  const sigE11El = document.getElementById('e-e11-8');
   if(sigE11El){
     sigE11El.innerHTML = `<span class="sig ${sigE11==='LONG'?'sig-long':'sig-hold'}">${sigE11}</span>`;
   }
