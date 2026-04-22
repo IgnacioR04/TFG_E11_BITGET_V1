@@ -1,6 +1,6 @@
 {
-  "runs": 6403,
-  "last_run": "2026-04-22T19:03:58.616802+00:00",
+  "runs": 6404,
+  "last_run": "2026-04-22T19:04:59.944017+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.5674,
     "vol_ok": true,
-    "ema200_slope": -342.133437,
+    "ema200_slope": -342.01932,
     "ema200_ok": false,
-    "prob_e11": 0.5579,
-    "prob_e6": 0.5579,
+    "prob_e11": 0.5518,
+    "prob_e6": 0.5518,
     "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-20T22:33:45.819718+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-20T22:34:51.228744+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-22T19:03:58.616802+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-22T19:04:59.944017+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11959,20 +11959,12 @@
       "ts": "2026-04-22T19:00:00+00:00",
       "open": 79000.54,
       "high": 79000.54,
-      "low": 78814.54,
-      "close": 78814.54,
-      "volume": 4702208.0
+      "low": 78780.74,
+      "close": 78826.01,
+      "volume": 13844480.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-22T06:47:55.746256+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.4467,
-      "prob_e6": 0.4467,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-22T06:49:04.600387+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.5579,
       "prob_e6": 0.5579,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-22T19:04:59.944017+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.5518,
+      "prob_e6": 0.5518,
       "signal": "HOLD",
       "strategy": "NONE"
     }
