@@ -1,6 +1,6 @@
 {
-  "runs": 5845,
-  "last_run": "2026-04-22T05:30:00.117896+00:00",
+  "runs": 5846,
+  "last_run": "2026-04-22T05:31:10.623578+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.5305,
     "vol_ok": true,
-    "ema200_slope": -355.200797,
+    "ema200_slope": -355.43937,
     "ema200_ok": false,
-    "prob_e11": 0.3597,
-    "prob_e6": 0.3597,
+    "prob_e11": 0.3451,
+    "prob_e6": 0.3451,
     "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-20T11:35:56.564223+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-20T11:36:56.765274+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-22T05:30:00.117896+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-22T05:31:10.623578+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11960,19 +11960,11 @@
       "open": 77552.03,
       "high": 78429.28,
       "low": 77464.0,
-      "close": 78259.98,
-      "volume": 871997440.0
+      "close": 78236.0,
+      "volume": 1132105728.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-21T19:11:00.150465+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.5588,
-      "prob_e6": 0.5588,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-21T19:12:57.748539+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.3597,
       "prob_e6": 0.3597,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-22T05:31:10.623578+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.3451,
+      "prob_e6": 0.3451,
       "signal": "HOLD",
       "strategy": "NONE"
     }
