@@ -54,26 +54,6 @@ E6_PCT     = 0.40    # sizing fijo 40% del capital
 # E6 opera en cualquier regimen (BULL, BEAR, SIDEWAYS) con LONG y SHORT
 # usando el submodelo XGBoost correspondiente al regimen HMM del momento.
 
-PARAMS_BULL = {
-    'n_estimators': 203,
-    'max_depth': 3,
-    'learning_rate': 0.012303727625885412,
-    'subsample': 0.9989516455010893,
-    'colsample_bytree': 0.4156885828019996,
-    'min_child_weight': 20,
-    'scale_pos_weight': 1.838089273033983
-}
-
-PARAMS_BEAR = {
-    'n_estimators': 201,
-    'max_depth': 7,
-    'learning_rate': 0.016121532375941407,
-    'subsample': 0.5013167040343544,
-    'colsample_bytree': 0.5345656836156467,
-    'min_child_weight': 12,
-    'scale_pos_weight': 1.2907125770828312
-}
-
 FEATURE_COLS = [
     'log_ret_1h', 'log_ret_4h', 'log_ret_1d',
     'log_ret_eth', 'log_ret_gold', 'log_ret_dxy',
@@ -128,7 +108,6 @@ def load_state():
                 return json.loads(content)
         except (json.JSONDecodeError, ValueError) as e:
             print(f"[E11] state.json corrupto ({e}) — reiniciando estado")
-    # Si no existe o esta corrupto, leer equity de Bitget
     print("[E11] Inicializando state.json...")
     initial_eq = 0.0
     if LIVE_MODE:
@@ -147,10 +126,6 @@ def save_state(state):
 
 # ── Descarga de datos ─────────────────────────────────────────────────────────
 def get_bitget_candles(client, symbol, granularity, limit=250):
-    """
-    Descarga velas de Bitget. Devuelve DataFrame con columnas OHLCV.
-    granularity: '1H', '4H', '1D', etc.
-    """
     try:
         data = client._get("/api/v2/mix/market/candles", {
             "symbol": symbol,
@@ -161,7 +136,6 @@ def get_bitget_candles(client, symbol, granularity, limit=250):
         rows = data.get("data", [])
         if not rows:
             return pd.DataFrame()
-        # Bitget devuelve: [timestamp, open, high, low, close, volume, ...]
         df = pd.DataFrame(rows, columns=["ts", "open", "high", "low", "close", "vol", "quote_vol"])
         df["ts"] = pd.to_datetime(df["ts"].astype(float), unit="ms", utc=True)
         df = df.set_index("ts").sort_index()
@@ -260,10 +234,6 @@ def get_fear_greed(last_known=None):
         return last_known if last_known is not None else 0.5
 
 def download_macro_yfinance():
-    """
-    Descarga datos diarios de Gold, SPY y DXY con yfinance.
-    Devuelve DataFrames o None si falla.
-    """
     macro = {}
     for ticker, key in [("GC=F", "gold"), ("SPY", "spy"), ("DX-Y.NYB", "dxy")]:
         try:
@@ -272,7 +242,6 @@ def download_macro_yfinance():
             if df.empty:
                 macro[key] = None
                 continue
-            # Limpiar columnas MultiIndex si las hay
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
             close_col = "Adj Close" if "Adj Close" in df.columns else "Close"
@@ -296,23 +265,17 @@ def rsi(series, period=14):
     return 100 - (100 / (1 + rs))
 
 def calc_features(df_btc, df_eth, macro, fg_norm):
-    """
-    Calcula las 26 features sobre el ultimo cierre de df_btc 1H.
-    Devuelve Series con los valores o None si hay error.
-    """
     df = df_btc.copy()
     c  = df["close"]
     h  = df["high"]
     l  = df["low"]
     v  = df["vol"]
 
-    # Returns
     log_ret_1h = np.log(c / c.shift(1))
     df["log_ret_1h"] = log_ret_1h
     df["log_ret_4h"] = log_ret_1h.rolling(4).sum()
     df["log_ret_1d"] = log_ret_1h.rolling(24).sum()
 
-    # ETH
     if df_eth is not None and not df_eth.empty:
         eth_aligned = df_eth["close"].reindex(df.index, method="ffill")
         df["log_ret_eth"] = np.log(eth_aligned / eth_aligned.shift(1))
@@ -324,7 +287,6 @@ def calc_features(df_btc, df_eth, macro, fg_norm):
         df["rsi_eth"]          = 50.0
         df["corr_btc_eth_24h"] = 0.5
 
-    # Macro (daily → ffill a 1h)
     for key, col in [("gold", "log_ret_gold"), ("dxy", "log_ret_dxy")]:
         if macro.get(key) is not None:
             s = macro[key].reindex(df.index, method="ffill")
@@ -332,7 +294,6 @@ def calc_features(df_btc, df_eth, macro, fg_norm):
         else:
             df[col] = 0.0
 
-    # EMAs
     ema21  = c.ewm(span=21, adjust=False).mean()
     ema50  = c.ewm(span=50, adjust=False).mean()
     sma200 = c.rolling(200).mean()
@@ -340,7 +301,6 @@ def calc_features(df_btc, df_eth, macro, fg_norm):
     df["ema50_diff"]  = (c - ema50)  / c
     df["sma200_diff"] = (c - sma200) / c
 
-    # MACD
     ema12 = c.ewm(span=12, adjust=False).mean()
     ema26 = c.ewm(span=26, adjust=False).mean()
     macd_line   = (ema12 - ema26) / c
@@ -349,16 +309,13 @@ def calc_features(df_btc, df_eth, macro, fg_norm):
     df["macd_signal"] = macd_sig
     df["macd_hist"]   = macd_line - macd_sig
 
-    # RSI
     df["rsi_14"] = rsi(c, 14)
 
-    # ROC
     df["roc_6"]  = ((c - c.shift(6))  / c.shift(6)) * 100.0
     df["roc_12"] = ((c - c.shift(12)) / c.shift(12)) * 100.0
     df["roc_24"] = ((c - c.shift(24)) / c.shift(24)) * 100.0
     df["mom_12"] = (c - c.shift(12)) / c
 
-    # ATR
     tr = pd.concat([
         h - l,
         (h - c.shift(1)).abs(),
@@ -367,7 +324,6 @@ def calc_features(df_btc, df_eth, macro, fg_norm):
     atr14 = tr.rolling(14).mean()
     df["atr_pct"] = atr14 / c
 
-    # Bollinger
     sma20    = c.rolling(20).mean()
     std20    = c.rolling(20).std()
     bb_upper = sma20 + 2 * std20
@@ -375,22 +331,18 @@ def calc_features(df_btc, df_eth, macro, fg_norm):
     df["bb_width"] = (bb_upper - bb_lower) / sma20
     df["bb_pct"]   = (c - bb_lower) / (bb_upper - bb_lower + 1e-10)
 
-    # Vol rolling
     df["vol_roll_24h"] = log_ret_1h.rolling(24).std()
 
-    # OBV
     direction = np.sign(log_ret_1h.fillna(0))
     obv = (v * direction).cumsum()
     obv_mean = obv.rolling(24).mean()
     obv_std  = obv.rolling(24).std()
     df["obv_norm"] = (obv - obv_mean) / (obv_std + 1e-10)
 
-    # Volume z-score
     vol_mean = v.rolling(24).mean()
     vol_std  = v.rolling(24).std()
     df["volume_zscore"] = (v - vol_mean) / (vol_std + 1e-10)
 
-    # Fear & Greed
     df["fear_greed_norm"] = fg_norm
 
     last = df[FEATURE_COLS].iloc[-1]
@@ -402,17 +354,12 @@ def calc_features(df_btc, df_eth, macro, fg_norm):
 
 # ── Filtros ───────────────────────────────────────────────────────────────────
 def get_regime(df_btc_1h):
-    """
-    Heuristica HMM simplificada basada en retorno y vol rolling 20 dias.
-    Usa datos 1h agrupados a dia.
-    """
     daily_close = df_btc_1h["close"].resample("1D").last().dropna()
     if len(daily_close) < 22:
         return "SIDEWAYS"
     log_ret = np.log(daily_close / daily_close.shift(1)).dropna()
     ret20   = log_ret.rolling(20).sum().iloc[-1]
     vol20   = log_ret.rolling(20).std().iloc[-1]
-    # Percentil de vol sobre toda la serie
     vol_percentile = (log_ret.rolling(20).std().dropna() < vol20).mean()
 
     if ret20 > 0 and vol_percentile < 0.70:
@@ -423,9 +370,6 @@ def get_regime(df_btc_1h):
         return "SIDEWAYS"
 
 def get_vol_percentile(df_btc_1h):
-    """
-    Proxy GARCH: percentil de la vol rolling 20d respecto a los ultimos 504 dias.
-    """
     daily_close = df_btc_1h["close"].resample("1D").last().dropna()
     if len(daily_close) < 22:
         return 0.5
@@ -438,12 +382,9 @@ def get_vol_percentile(df_btc_1h):
     return float(pct)
 
 def get_ema200_slope(df_btc_1h):
-    """
-    EMA200 sobre cierres diarios. Devuelve pendiente = EMA200[hoy] - EMA200[hoy-5].
-    """
     daily_close = df_btc_1h["close"].resample("1D").last().dropna()
     if len(daily_close) < 205:
-        return 1.0  # si no hay suficientes datos, asumir alcista
+        return 1.0
     ema200 = daily_close.ewm(span=EMA_SPAN, adjust=False).mean()
     slope  = float(ema200.iloc[-1] - ema200.iloc[-1 - EMA_SLOPE_DAYS])
     return slope
@@ -458,7 +399,6 @@ def load_model(path):
         return None
 
 def predict_proba(model, x):
-    """x: array shape (1, 26)"""
     try:
         prob = model.predict_proba(x)[0, 1]
         return float(prob)
@@ -468,7 +408,6 @@ def predict_proba(model, x):
 
 # ── Kelly sizing ──────────────────────────────────────────────────────────────
 def kelly_sizing(prob):
-    """Kelly fraccional. Usa abs para soportar LONG (prob>0.5) y SHORT (prob<0.5)."""
     edge = 2 * abs(prob - 0.5)
     pct  = BASE_PCT + edge / KELLY_DIV
     return min(pct, PCT_MAX)
@@ -476,19 +415,16 @@ def kelly_sizing(prob):
 # ── Condiciones de parada ─────────────────────────────────────────────────────
 def check_auto_pause(state, equity, reason=None):
     initial = state.get("initial_equity", 0)
-    # Drawdown > 50%
     if initial > 0 and equity < initial * 0.50:
         state["paused"]       = True
         state["pause_reason"] = "DRAWDOWN > 50%"
         print("[E11] *** AUTO-PAUSE: drawdown > 50% ***")
         return True
-    # 5 perdidas consecutivas
     if state.get("consecutive_losses", 0) >= 5:
         state["paused"]       = True
         state["pause_reason"] = "5 trades negativos consecutivos"
         print("[E11] *** AUTO-PAUSE: 5 perdidas consecutivas ***")
         return True
-    # 3 errores API seguidos
     if state.get("consecutive_errors", 0) >= 3:
         state["paused"]       = True
         state["pause_reason"] = "3 errores API consecutivos"
@@ -509,7 +445,6 @@ def publish_data(state, btc_price, filters, prob):
 
     bal = state.get("live_balance", {"equity": 0, "available": 0, "unrealized_pl": 0})
 
-    # PnL diario
     daily_pnl = {}
     for t in trades:
         day = str(t.get("close_time", ""))[:10]
@@ -552,10 +487,6 @@ def publish_data(state, btc_price, filters, prob):
 
 # ── Registrar cierre de trade ─────────────────────────────────────────────────
 def _register_trade_close(state, pos, exit_price, close_time, exit_reason):
-    """
-    Registra un trade cerrado en state["trades"] y limpia la posicion.
-    Aplica comision por ambos lados (apertura + cierre) como en el backtest.
-    """
     entry = pos.get("entry_price", exit_price)
     size_btc = pos.get("size_btc", 0)
     size_usdt = pos.get("size_usdt", 0)
@@ -565,10 +496,9 @@ def _register_trade_close(state, pos, exit_price, close_time, exit_reason):
     direction_sign = 1 if side == "LONG" else -1
     ret = (exit_price - entry) / entry
     pnl_bruto = size_usdt * leverage * direction_sign * ret
-    comision_total = size_usdt * (COMISION * 2)  # apertura + cierre
+    comision_total = size_usdt * (COMISION * 2)
     pnl_net = pnl_bruto - comision_total
 
-    # Cap de perdida al 90% del margen (igual que en el backtest)
     if pnl_net < -0.90 * size_usdt:
         pnl_net = -0.90 * size_usdt
 
@@ -611,11 +541,9 @@ def run():
     state["runs"] = state.get("runs", 0) + 1
     state["last_run"] = now_utc
 
-    # Verificar si el bot esta pausado
     if state.get("paused"):
         print(f"[E11] Bot PAUSADO — razon: {state.get('pause_reason')}")
         save_state(state)
-        # Publicar estado aunque este pausado
         try:
             btc_price = 0
             if LIVE_MODE:
@@ -626,7 +554,6 @@ def run():
             pass
         return
 
-    # Inicializar cliente Bitget
     client = None
     if LIVE_MODE:
         try:
@@ -638,14 +565,12 @@ def run():
             save_state(state)
             return
 
-    # Actualizar balance desde Bitget
     balance = {"available": 0, "equity": 0, "unrealized_pl": 0}
     if client:
         try:
             balance = client.get_balance()
             state["live_balance"] = balance
             print(f"[E11] Balance: equity={balance['equity']:.4f}  disponible={balance['available']:.4f}")
-            # Inicializar equity inicial si es la primera vez
             if state.get("initial_equity", 0) == 0:
                 state["initial_equity"] = round(balance["equity"], 4)
                 print(f"[E11] Equity inicial establecido: {state['initial_equity']:.4f}")
@@ -658,7 +583,6 @@ def run():
         save_state(state)
         return
 
-    # Precio actual
     btc_price = 0
     if client:
         try:
@@ -668,7 +592,7 @@ def run():
             print(f"[E11] Error obteniendo precio: {e}")
 
     # ── Descargar datos de mercado ────────────────────────────────────────────
-    print("[E11] Descargando datos 1h BTC y ETH desde yfinance para alinear señales con histórico...")
+    print("[E11] Descargando datos 1h BTC y ETH desde yfinance...")
     df_btc = download_hourly_yfinance("BTC-USD")
     tmp_eth_yf = download_hourly_yfinance("ETH-USD")
     df_eth = tmp_eth_yf[["close"]] if not tmp_eth_yf.empty else pd.DataFrame()
@@ -690,11 +614,10 @@ def run():
 
     state["consecutive_errors"] = 0
     btc_price = float(df_btc["close"].iloc[-1])
-    # Timestamp (ISO) de la ultima vela 1h cerrada — nuestro "reloj" para el cierre
     last_candle_ts = df_btc.index[-1].isoformat()
     print(f"[E11] BTC velas: {len(df_btc)}  precio cierre: {btc_price:.2f}  vela actual: {last_candle_ts}")
 
-    # Snapshot de las ultimas 240 velas 1h (10 dias) para el grafico del dashboard
+    # Snapshot velas para dashboard
     candles_snapshot = []
     for ts_c, row_c in df_btc.tail(240).iterrows():
         candles_snapshot.append({
@@ -708,32 +631,27 @@ def run():
     state["candles_1h"] = candles_snapshot
 
     # ── Verificar si hay posicion abierta que cerrar ──────────────────────────
-    # Regla del backtest: cerrar en el close de la vela SIGUIENTE a la de apertura.
-    # Es decir, cerramos en cuanto last_candle_ts != open_candle_ts.
     pos = state.get("position", {})
     if pos.get("open"):
         open_candle_ts = pos.get("open_candle_ts")
 
         if client:
-            # Comprobar que la posicion sigue abierta en Bitget
             try:
                 has_pos = client.has_open_position("BTCUSDT")
             except Exception as e:
                 print(f"[E11] Error verificando posicion: {e}")
                 state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
-                has_pos = True  # asumir que sigue abierta para no hacer nada raro
+                has_pos = True
 
             if not has_pos:
-                # La posicion ya no existe en Bitget (liquidacion, cierre manual, etc.)
                 print("[E11] Posicion no encontrada en Bitget — registrando cierre externo")
                 _register_trade_close(state, pos, btc_price, now_utc,
                                       exit_reason="EXTERNAL_CLOSE")
             elif open_candle_ts and last_candle_ts != open_candle_ts:
-                # Ha cambiado la vela 1h → cierre forzoso a mercado (replica backtest)
                 print(f"[E11] Vela 1h cambio ({open_candle_ts} -> {last_candle_ts}) — cerrando a mercado")
                 try:
                     client.close_position("BTCUSDT")
-                    time.sleep(2)  # esperar a que se procese el cierre
+                    time.sleep(2)
                     exit_px = client.get_price("BTCUSDT")
                     _register_trade_close(state, pos, exit_px, now_utc,
                                           exit_reason="CANDLE_CLOSE")
@@ -743,7 +661,6 @@ def run():
             else:
                 print(f"[E11] Posicion abierta en vela {open_candle_ts}, aun es la vela actual — mantener")
         else:
-            # Paper mode: cerrar si ha cambiado la vela
             if open_candle_ts and last_candle_ts != open_candle_ts:
                 print(f"[E11] (paper) Vela 1h cambio — cerrando simulado")
                 _register_trade_close(state, pos, btc_price, now_utc,
@@ -770,10 +687,10 @@ def run():
     # ── Pipeline de filtros ────────────────────────────────────────────────────
     signal   = "HOLD"
     prob     = None
-    strategy = None   # "E11" o "E6" — cual estrategia genero la senal
+    strategy = None
     filters  = {}
 
-    # Filtros comunes a ambas estrategias
+    # Filtros comunes
     hmm_filters = compute_hmm_regime_filters(df_btc)
     if hmm_filters is not None:
         regime = hmm_filters["regime"]
@@ -798,8 +715,7 @@ def run():
 
     print(f"[BOT] Pipeline: {pipeline_mode} | Regimen: {regime} | Vol: {vol_pct:.3f} | EMA200 slope: {ema_slope:.6f}")
 
-    # ── Seleccion de submodelo segun regimen HMM (igual que pipeline TFG) ──────
-    # BULL -> xgb_bull.pkl    |    BEAR/SIDEWAYS -> xgb_bear.pkl
+    # ── Seleccion de submodelo segun regimen HMM ──────────────────────────────
     if regime == "BULL":
         model_active = load_model("models/xgb_bull.pkl")
         model_tag = "xgb_bull"
@@ -823,14 +739,13 @@ def run():
     filters["in_dead_zone_global"] = in_dead_zone_global
 
     # ── Intentar E11 primero ──────────────────────────────────────────────────
-    # Reglas del TFG (run_backtest_e11):
-    #   - active = vol_ok + |prob-0.5| > 0.05
-    #   - |prob-0.5| > DELTA_E11 (=0.20)
-    #   - shorts desactivados (ALLOW_SHORTS=False)
-    #   - macro_up (EMA200 slope > 0) solo para LONG
-    # NO exige regime == BULL (el regimen solo elige submodelo, no bloquea)
-    print("[BOT] Intentando E11 (macro + Kelly + shorts off)...")
-    in_dead_zone_e11 = abs(xgb_prob - 0.5) <= DELTA
+    # Reglas del backtest (comparativa_e6_e11.py):
+    #   - prob - 0.5 > DELTA_E11 (=0.20)  → solo LONG, exige prob > 0.70
+    #   - regime == 'BULL'
+    #   - vol_percentile <= 0.80
+    #   - ema200_slope > 0
+    print("[BOT] Intentando E11 (BULL + macro + Kelly + solo LONG)...")
+    in_dead_zone_e11 = (xgb_prob - 0.5) <= DELTA  # sin abs: solo LONG
     filters["in_dead_zone_e11"] = in_dead_zone_e11
 
     if not vol_ok:
@@ -838,31 +753,23 @@ def run():
     elif in_dead_zone_global:
         print(f"[E11] Bloqueado: dead zone global |{xgb_prob:.3f}-0.5| <= {DELTA_GLOBAL}")
     elif in_dead_zone_e11:
-        print(f"[E11] Bloqueado: dead zone E11 |{xgb_prob:.3f}-0.5| <= {DELTA}")
+        print(f"[E11] Bloqueado: dead zone E11 prob-0.5={xgb_prob-0.5:.3f} <= {DELTA}")
+    elif regime != "BULL":
+        print(f"[E11] Bloqueado: regime={regime} (E11 solo opera en BULL)")
+    elif not ema_ok:
+        print(f"[E11] Bloqueado: EMA200 slope={ema_slope:.2f} <= 0")
     else:
-        direccion = 1 if xgb_prob > 0.5 else -1
-        if direccion == -1 and not ALLOW_SHORTS:
-            print(f"[E11] Bloqueado: prob={xgb_prob:.3f}<0.5 y shorts desactivados")
-        elif direccion == 1 and not ema_ok:
-            print(f"[E11] Bloqueado: LONG requiere macro_up pero EMA200 slope={ema_slope:.2f}<=0")
-        else:
-            # Senal valida
-            if direccion == 1:
-                signal   = "LONG"
-                strategy = "E11"
-                prob     = xgb_prob
-                print(f"[E11] *** SENAL LONG — prob={xgb_prob:.4f}  regimen={regime} ***")
-            else:
-                signal   = "SHORT"
-                strategy = "E11"
-                prob     = xgb_prob
-                print(f"[E11] *** SENAL SHORT — prob={xgb_prob:.4f}  regimen={regime} ***")
+        signal   = "LONG"
+        strategy = "E11"
+        prob     = xgb_prob
+        print(f"[E11] *** SENAL LONG — prob={xgb_prob:.4f}  regimen={regime} ***")
 
     # ── Si E11 no da senal, intentar E6 como fallback ─────────────────────────
-    # Reglas del TFG (run_backtest con delta=0.30, apal=5, pct=0.40):
-    #   - active = vol_ok + |prob-0.5| > 0.05
-    #   - |prob-0.5| > DELTA_E6 (=0.30)
-    #   - LONG si prob>0.5 / SHORT si prob<0.5  (en cualquier regimen)
+    # Reglas del backtest (comparativa_e6_e11.py):
+    #   - abs(prob - 0.5) > E6_DELTA (=0.30)
+    #   - vol_ok (heredado del pipeline)
+    #   - LONG si prob > 0.5, SHORT si prob < 0.5
+    #   - opera en cualquier regimen
     if signal == "HOLD" and not state.get("position", {}).get("open"):
         print("[BOT] E11 sin senal — intentando E6 (delta=0.30, LONG+SHORT)...")
         in_dead_zone_e6 = abs(xgb_prob - 0.5) <= E6_DELTA
@@ -892,7 +799,7 @@ def run():
     state["last_filters"]    = filters
     state["last_signal"]     = signal
 
-    # Historial de probabilidades (para grafico de confianza en dashboard)
+    # Historial de probabilidades
     prob_e11 = filters.get("prob_e11")
     prob_e6  = filters.get("prob_e6")
     prob_entry = {
@@ -904,17 +811,13 @@ def run():
         "strategy": strategy if strategy else "NONE",
     }
     state.setdefault("prob_history", []).append(prob_entry)
-    # Limitar a 500 entradas (~8h a 1 min)
     if len(state["prob_history"]) > 500:
         state["prob_history"] = state["prob_history"][-500:]
 
-    # Historial de regimen HMM por vela 1h (para bandas de regimen en dashboard).
-    # Solo anadimos una entrada cuando cambia la vela; varias ejecuciones del bot
-    # dentro de la misma vela no duplican datos.
+    # Historial de regimen HMM por vela 1h
     rh = state.setdefault("regime_history", [])
     if not rh or rh[-1].get("ts") != last_candle_ts:
         rh.append({"ts": last_candle_ts, "regime": regime})
-        # Mantener ~60 dias a 1h = 1440 velas
         if len(rh) > 1440:
             state["regime_history"] = rh[-1440:]
 
@@ -925,14 +828,12 @@ def run():
         capital   = float(balance.get("available", equity))
         direction = "buy" if signal == "LONG" else "sell"
 
-        # Sizing segun estrategia
         if strategy == "E11":
             pct       = kelly_sizing(prob)
             size_usdt = capital * pct
             filters["pct_kelly"] = round(pct, 4)
             print(f"[E11] Kelly sizing: pct={pct:.3f}  capital={capital:.2f}  size={size_usdt:.2f} USDT")
         else:
-            # E6: sizing fijo 40%
             pct       = E6_PCT
             size_usdt = capital * pct
             filters["pct_e6"] = round(pct, 4)
@@ -956,7 +857,7 @@ def run():
                     "pct_used":       round(pct, 4),
                     "leverage":       LEVERAGE,
                     "open_time":      now_utc,
-                    "open_candle_ts": last_candle_ts,   # << clave para cierre a siguiente vela
+                    "open_candle_ts": last_candle_ts,
                     "order_id":       result["orderId"],
                 }
                 state["consecutive_errors"] = 0
@@ -994,7 +895,6 @@ def run():
         "unrealPL":  round(float(balance.get("unrealized_pl", 0)), 4)
     }
     state.setdefault("equity_history", []).append(eq_entry)
-    # Limitar a 2000 entradas (~33h a 1 min)
     if len(state["equity_history"]) > 2000:
         state["equity_history"] = state["equity_history"][-2000:]
 
