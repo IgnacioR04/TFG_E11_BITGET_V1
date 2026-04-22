@@ -1,6 +1,6 @@
 {
-  "runs": 5925,
-  "last_run": "2026-04-22T07:13:53.625015+00:00",
+  "runs": 5926,
+  "last_run": "2026-04-22T07:14:51.515979+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,10 +23,10 @@
     "regime": "BEAR",
     "vol_percentile": 0.5279,
     "vol_ok": true,
-    "ema200_slope": -349.606851,
+    "ema200_slope": -348.964671,
     "ema200_ok": false,
-    "prob_e11": 0.3887,
-    "prob_e6": 0.3887,
+    "prob_e11": 0.3999,
+    "prob_e6": 0.3999,
     "in_dead_zone_global": false,
     "in_dead_zone_e11": true,
     "in_dead_zone_e6": true,
@@ -36,11 +36,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-20T13:07:50.046042+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-20T13:08:52.809821+00:00",
       "equity": 57.942,
@@ -10035,6 +10030,11 @@
       "ts": "2026-04-22T07:13:53.625015+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-22T07:14:51.515979+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11958,21 +11958,13 @@
     {
       "ts": "2026-04-22T07:00:00+00:00",
       "open": 78028.98,
-      "high": 78063.46,
+      "high": 78128.0,
       "low": 77982.25,
-      "close": 78063.46,
+      "close": 78128.0,
       "volume": 82096128.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-21T20:54:56.089266+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.5145,
-      "prob_e6": 0.5145,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-21T20:55:58.596987+00:00",
       "regime": "BEAR",
@@ -15962,6 +15954,14 @@
       "regime": "BEAR",
       "prob_e11": 0.3887,
       "prob_e6": 0.3887,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-22T07:14:51.515979+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.3999,
+      "prob_e6": 0.3999,
       "signal": "HOLD",
       "strategy": "NONE"
     }
