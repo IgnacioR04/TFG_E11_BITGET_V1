@@ -1,8 +1,8 @@
 """
 generar_historico.py
 ====================
-Traduccion 1-a-1 del notebook comparativa_e6_e11.ipynb + generar_trades_historicos.ipynb.
-Entrena el HMM sobre datos diarios, aplica el pipeline y simula E6/E11 sobre el test set.
+Replica operativa del notebook comparativa_e6_e11.ipynb.
+Entrena el HMM sobre datos diarios, aplica el pipeline y simula la cascada E11 -> E6 sobre el test set.
 
 Se ejecuta periodicamente en GitHub Actions y publica docs/historical_trades.json.
 
@@ -474,6 +474,9 @@ def backtest_e11(df, capital_ini):
             if pd.isna(prob) or abs(prob - 0.5) <= E11_DELTA:
                 continue
 
+            if str(row.get("regime", "")) != "BULL":
+                continue
+
             d = 1 if prob > 0.5 else -1
 
             if d == -1 and not ALLOW_SHORTS:
@@ -676,8 +679,10 @@ def main():
     test_start = df_test.index[0].isoformat()
     test_end = df_test.index[-1].isoformat()
 
+    active_df = df_test[df_test["active"] == True].copy()
     meta = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
+        "logic_version": "E11_BULL_GATE_v1",
         "date_range": f"{str(df_test.index[0].date())} / {str(df_test.index[-1].date())}",
         "test_start": test_start,
         "test_end": test_end,
@@ -689,6 +694,13 @@ def main():
         "e11": sum_e11,
         "e6_trades": int(sum_e6["trades"]),
         "e11_trades": int(sum_e11["trades"]),
+        "e11_rejections": {
+            "active_rows": int(len(active_df)),
+            "dead_zone_e11_or_nan": int(((df_test["active"] == True) & (df_test["prob"].isna() | ((df_test["prob"] - 0.5).abs() <= E11_DELTA))).sum()),
+            "not_bull": int(((active_df["prob"] - 0.5).abs() > E11_DELTA).mul(active_df["regime"] != "BULL").sum()),
+            "ema_not_ok": int((((active_df["prob"] - 0.5).abs() > E11_DELTA) & (active_df["regime"] == "BULL") & (active_df["prob"] > 0.5) & (active_df["ema200_slope"] <= 0)).sum()),
+            "shorts_blocked": int((((active_df["prob"] - 0.5).abs() > E11_DELTA) & (active_df["regime"] == "BULL") & (active_df["prob"] < 0.5)).sum()),
+        },
     }
     print(json.dumps(meta, indent=2, default=str))
 
