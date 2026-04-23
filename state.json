@@ -1,6 +1,6 @@
 {
-  "runs": 6963,
-  "last_run": "2026-04-23T08:59:51.487717+00:00",
+  "runs": 6964,
+  "last_run": "2026-04-23T09:01:14.044619+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,13 +23,13 @@
     "regime": "BEAR",
     "vol_percentile": 0.5465,
     "vol_ok": true,
-    "ema200_slope": -323.15767,
+    "ema200_slope": -323.120745,
     "ema200_ok": false,
     "regime_e11_ok": false,
     "daily_context_ts": "2026-04-23",
     "submodel": "xgb_bear",
-    "prob_e11": 0.602,
-    "prob_e6": 0.602,
+    "prob_e11": 0.6196,
+    "prob_e6": 0.6196,
     "signal": "HOLD",
     "strategy": "NONE",
     "fear_greed_raw": 46.0,
@@ -38,11 +38,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-21T10:22:58.333572+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-21T10:24:57.216209+00:00",
       "equity": 57.942,
@@ -10037,6 +10032,11 @@
       "ts": "2026-04-23T08:59:51.487717+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-23T09:01:14.044619+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -10045,14 +10045,6 @@
     "unrealized_pl": 0.0
   },
   "candles_1h": [
-    {
-      "ts": "2026-04-13T09:00:00+00:00",
-      "open": 70667.79,
-      "high": 70881.16,
-      "low": 70667.79,
-      "close": 70789.25,
-      "volume": 0.0
-    },
     {
       "ts": "2026-04-13T10:00:00+00:00",
       "open": 70791.62,
@@ -11962,19 +11954,19 @@
       "open": 78086.14,
       "high": 78204.31,
       "low": 77748.02,
-      "close": 77878.74,
-      "volume": 827072512.0
+      "close": 77877.34,
+      "volume": 828563456.0
+    },
+    {
+      "ts": "2026-04-23T09:00:00+00:00",
+      "open": 77877.35,
+      "high": 77882.45,
+      "low": 77851.8,
+      "close": 77882.45,
+      "volume": 360263680.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-22T20:36:57.698661+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.5684,
-      "prob_e6": 0.5684,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-22T20:37:52.033313+00:00",
       "regime": "BEAR",
@@ -15966,6 +15958,14 @@
       "prob_e6": 0.602,
       "signal": "HOLD",
       "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-23T09:01:14.044619+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.6196,
+      "prob_e6": 0.6196,
+      "signal": "HOLD",
+      "strategy": "NONE"
     }
   ],
   "regime_history": [
@@ -16519,6 +16519,10 @@
     },
     {
       "ts": "2026-04-23T08:00:00+00:00",
+      "regime": "BEAR"
+    },
+    {
+      "ts": "2026-04-23T09:00:00+00:00",
       "regime": "BEAR"
     }
   ]
