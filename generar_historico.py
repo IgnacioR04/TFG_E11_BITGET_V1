@@ -1,12 +1,17 @@
 """
 generar_historico.py
 ====================
-Replica operativa del notebook comparativa_e6_e11.ipynb.
-Entrena el HMM sobre datos diarios, aplica el pipeline y simula la cascada E11 -> E6 sobre el test set.
+Genera docs/historical_trades.json para la parte visual del dashboard.
 
-Se ejecuta periodicamente en GitHub Actions y publica docs/historical_trades.json.
+Optimizacion de carga de datos
+- Usa CSV locales en csv_cache/ hasta marzo de 2026
+- Solo completa el tramo reciente con yfinance
+- El historico es informativo y no altera la logica del bot live
 
-Dependencias: pip install yfinance pandas numpy hmmlearn xgboost scikit-learn pandas_ta requests
+Estrategias simuladas
+- E11 tiene prioridad conceptual sobre E6
+- E11 exige regimen BULL, EMA200 slope positiva y solo LONG
+- E6 actua como estrategia mas flexible para la comparativa visual
 """
 
 import json
@@ -31,6 +36,9 @@ np.random.seed(SEED)
 
 MODELS_DIR = Path("models")
 OUT_FILE = Path("docs/historical_trades.json")
+CACHE_DIR = Path("csv_cache")
+CACHE_CUTOFF_1H = pd.Timestamp("2026-03-31 23:00:00")
+RECENT_START_1H = pd.Timestamp("2026-04-01 00:00:00")
 
 # ── Parametros identicos a comparativa_e6_e11.ipynb ──────────────────────────
 COMISION = 0.0004
@@ -68,94 +76,95 @@ FEATURE_COLS = [
 
 
 # ═════════════════════════════════════════════════════════════════════════════
-# 1. Descarga de datos via yfinance
+# 1. Carga hibrida
+#    CSV cache hasta marzo de 2026 + yfinance solo para el tramo reciente
 # ═════════════════════════════════════════════════════════════════════════════
-def descargar_yf(ticker, periodo, intervalo):
-    print(f"[YF] Descargando {ticker} ({periodo}, {intervalo})...")
-    df = yf.download(
-        ticker,
-        period=periodo,
-        interval=intervalo,
-        auto_adjust=False,
-        progress=False,
-    )
-    if df.empty:
-        print(f"[YF] VACIO para {ticker}")
-        return df
-
+def _to_naive_index(df):
+    if df is None or df.empty:
+        return pd.DataFrame()
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
-
     df.columns = [c.lower().replace(" ", "_") for c in df.columns]
-    df.index = pd.to_datetime(df.index)
-
-    if df.index.tz is not None:
+    df.index = pd.to_datetime(df.index, errors="coerce")
+    if getattr(df.index, "tz", None) is not None:
         df.index = df.index.tz_convert(None)
-
+    df = df[~df.index.isna()]
     df.index.name = "datetime"
     df = df[~df.index.duplicated(keep="last")].sort_index()
     return df
 
 
-def descargar_yf_1h_largo(ticker, start="2019-01-01", chunk_days=680):
-    print(f"[YF] Descargando largo {ticker} 1h desde {start}...")
-    start_ts = pd.Timestamp(start)
-    end_ts = pd.Timestamp.utcnow().tz_localize(None)
+def _utc_now_naive():
+    ts = pd.Timestamp.utcnow()
+    return ts.tz_convert(None) if ts.tzinfo is not None else ts
 
-    partes = []
-    cur = start_ts
 
-    while cur < end_ts:
-        nxt = min(cur + pd.Timedelta(days=chunk_days), end_ts)
-        print(f"[YF]  tramo {ticker} {cur.date()} -> {nxt.date()}")
-
-        df = yf.download(
-            ticker,
-            start=cur.strftime("%Y-%m-%d"),
-            end=nxt.strftime("%Y-%m-%d"),
-            interval="1h",
-            auto_adjust=False,
-            progress=False,
-        )
-
-        if not df.empty:
-            if isinstance(df.columns, pd.MultiIndex):
-                df.columns = df.columns.get_level_values(0)
-
-            df.columns = [c.lower().replace(" ", "_") for c in df.columns]
-            df.index = pd.to_datetime(df.index)
-
-            if df.index.tz is not None:
-                df.index = df.index.tz_convert(None)
-
-            df.index.name = "datetime"
-            partes.append(df)
-
-        cur = nxt - pd.Timedelta(days=2)
-
-    if not partes:
+def descargar_yf(ticker, periodo=None, intervalo="1d", start=None, end=None):
+    label = f"{ticker} ({intervalo})"
+    try:
+        if periodo is not None:
+            print(f"[YF] Descargando {label} period={periodo}")
+            df = yf.download(
+                ticker,
+                period=periodo,
+                interval=intervalo,
+                auto_adjust=False,
+                progress=False,
+            )
+        else:
+            print(f"[YF] Descargando {label} start={start} end={end}")
+            df = yf.download(
+                ticker,
+                start=start,
+                end=end,
+                interval=intervalo,
+                auto_adjust=False,
+                progress=False,
+            )
+        return _to_naive_index(df)
+    except Exception as e:
+        print(f"[YF] Error {ticker} {intervalo}: {e}")
         return pd.DataFrame()
 
-    out = pd.concat(partes).sort_index()
-    out = out[~out.index.duplicated(keep="last")]
+
+def load_csv_local(filename):
+    path = CACHE_DIR / filename
+    if not path.exists():
+        print(f"[CACHE] No encontrado {path}")
+        return pd.DataFrame()
+
+    print(f"[CACHE] Cargando {path}")
+    df = pd.read_csv(path)
+
+    dt_col = None
+    for cand in ["datetime", "date", "Date", "Datetime", "datetime_utc", "timestamp"]:
+        if cand in df.columns:
+            dt_col = cand
+            break
+    if dt_col is None:
+        raise ValueError(f"{filename} no tiene columna datetime reconocible")
+
+    df[dt_col] = pd.to_datetime(df[dt_col], utc=True, errors="coerce")
+    df = df.rename(columns={dt_col: "datetime"}).set_index("datetime")
+    return _to_naive_index(df)
+
+
+def combinar_cache_y_reciente(df_cache, df_recent, cutoff_ts):
+    if df_cache is None or df_cache.empty:
+        out = df_recent.copy()
+    else:
+        out = df_cache[df_cache.index <= cutoff_ts].copy()
+        if df_recent is not None and not df_recent.empty:
+            out = pd.concat([out, df_recent], axis=0)
+
+    if out is None or out.empty:
+        return pd.DataFrame()
+
+    out = out[~out.index.duplicated(keep="last")].sort_index()
     return out
 
 
-def descargar_todo():
-    # Descarga larga por tramos para 1h
-    df_btc = descargar_yf_1h_largo("BTC-USD", start="2019-01-01")
-    df_eth = descargar_yf_1h_largo("ETH-USD", start="2019-01-01")
-
-    # Macros con mucha mas historia para no recortar el dataset
-    df_gold = descargar_yf("GC=F", "10y", "1d")
-    df_dxy = descargar_yf("DX-Y.NYB", "10y", "1d")
-
-    df_btc = df_btc[["open", "high", "low", "close", "volume"]].dropna(subset=["close"])
-    df_eth = df_eth[["close"]].rename(columns={"close": "eth"})
-    df_gold = df_gold[["close"]].rename(columns={"close": "gold"})
-    df_dxy = df_dxy[["close"]].rename(columns={"close": "dxy"})
-
-    # Fear & Greed completo
+def descargar_fear_greed():
     try:
         r = requests.get("https://api.alternative.me/fng/?limit=0&format=json", timeout=10)
         dat = r.json()["data"]
@@ -164,9 +173,57 @@ def descargar_todo():
         fg = fg.set_index("timestamp").sort_index()
         fg["value"] = fg["value"].astype(float)
         fg.index.name = "datetime"
+        return fg
     except Exception as e:
         print(f"[FNG] Error {e}. Usando valor neutro 50.")
-        fg = pd.DataFrame({"value": [50]}, index=[df_btc.index[0]])
+        return pd.DataFrame()
+
+
+def descargar_todo():
+    CACHE_DIR.mkdir(parents=True, exist_ok=True)
+    recent_end = (_utc_now_naive() + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    recent_start = RECENT_START_1H.strftime("%Y-%m-%d")
+
+    # 1h desde cache hasta marzo de 2026 y solo tramo reciente via yfinance
+    btc_cache = load_csv_local("BTC_USD_1h.csv")
+    eth_cache = load_csv_local("ETH_USD_1h.csv")
+
+    btc_recent = descargar_yf("BTC-USD", intervalo="1h", start=recent_start, end=recent_end)
+    eth_recent = descargar_yf("ETH-USD", intervalo="1h", start=recent_start, end=recent_end)
+
+    df_btc = combinar_cache_y_reciente(btc_cache, btc_recent, CACHE_CUTOFF_1H)
+    df_eth = combinar_cache_y_reciente(eth_cache, eth_recent, CACHE_CUTOFF_1H)
+
+    # Diarios preferentemente desde cache
+    gold_cache = load_csv_local("GC_F_1d.csv")
+    dxy_cache = load_csv_local("DXY_NYB_1d.csv")
+
+    df_gold = gold_cache if not gold_cache.empty else descargar_yf("GC=F", periodo="10y", intervalo="1d")
+    df_dxy = dxy_cache if not dxy_cache.empty else descargar_yf("DX-Y.NYB", periodo="10y", intervalo="1d")
+
+    if df_btc.empty or df_eth.empty:
+        print("[DATA] Cache insuficiente o reciente vacio. Fallback completo a yfinance reciente ampliado.")
+        alt_start = "2024-01-01"
+        if df_btc.empty:
+            df_btc = descargar_yf("BTC-USD", intervalo="1h", start=alt_start, end=recent_end)
+        if df_eth.empty:
+            df_eth = descargar_yf("ETH-USD", intervalo="1h", start=alt_start, end=recent_end)
+
+    df_btc = df_btc[["open", "high", "low", "close", "volume"]].dropna(subset=["close"])
+    df_eth = df_eth[["close"]].rename(columns={"close": "eth"})
+    df_gold = df_gold[["close"]].rename(columns={"close": "gold"})
+    df_dxy = df_dxy[["close"]].rename(columns={"close": "dxy"})
+
+    fg = descargar_fear_greed()
+    if fg.empty:
+        fg = pd.DataFrame({"value": [50.0]}, index=[df_btc.index[0]])
+        fg.index.name = "datetime"
+
+    print(f"[DATA] BTC rows={len(df_btc)} range={df_btc.index[0]} -> {df_btc.index[-1]}")
+    print(f"[DATA] ETH rows={len(df_eth)} range={df_eth.index[0]} -> {df_eth.index[-1]}")
+    print(f"[DATA] GOLD rows={len(df_gold)}")
+    print(f"[DATA] DXY rows={len(df_dxy)}")
+    print(f"[DATA] FG rows={len(fg)}")
 
     return df_btc, df_eth, df_gold, df_dxy, fg
 
@@ -679,28 +736,20 @@ def main():
     test_start = df_test.index[0].isoformat()
     test_end = df_test.index[-1].isoformat()
 
-    active_df = df_test[df_test["active"] == True].copy()
     meta = {
         "generated_at": datetime.now(timezone.utc).isoformat(),
-        "logic_version": "E11_BULL_GATE_v1",
         "date_range": f"{str(df_test.index[0].date())} / {str(df_test.index[-1].date())}",
         "test_start": test_start,
         "test_end": test_end,
         "test_candles": int(len(df_test)),
         "rows": int(len(df_test)),
-        "source": "yfinance largo por tramos 1h",
+        "source": "csv_cache<=2026-03 + yfinance_recent",
         "capital_inicial": CAPITAL_INI,
         "e6": sum_e6,
         "e11": sum_e11,
         "e6_trades": int(sum_e6["trades"]),
         "e11_trades": int(sum_e11["trades"]),
-        "e11_rejections": {
-            "active_rows": int(len(active_df)),
-            "dead_zone_e11_or_nan": int(((df_test["active"] == True) & (df_test["prob"].isna() | ((df_test["prob"] - 0.5).abs() <= E11_DELTA))).sum()),
-            "not_bull": int(((active_df["prob"] - 0.5).abs() > E11_DELTA).mul(active_df["regime"] != "BULL").sum()),
-            "ema_not_ok": int((((active_df["prob"] - 0.5).abs() > E11_DELTA) & (active_df["regime"] == "BULL") & (active_df["prob"] > 0.5) & (active_df["ema200_slope"] <= 0)).sum()),
-            "shorts_blocked": int((((active_df["prob"] - 0.5).abs() > E11_DELTA) & (active_df["regime"] == "BULL") & (active_df["prob"] < 0.5)).sum()),
-        },
+        "data_mode": "cache_hibrida",
     }
     print(json.dumps(meta, indent=2, default=str))
 
