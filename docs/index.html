@@ -416,7 +416,6 @@ footer a:hover{color:var(--text);}
   <button class="tab" data-pane="equity">Equity</button>
 </div>
 
-<!-- ========== OVERVIEW ========== -->
 <section class="pane on" id="pane-overview">
 
   <div class="kpis">
@@ -534,7 +533,6 @@ footer a:hover{color:var(--text);}
   </div>
 </section>
 
-<!-- ========== MERCADO BTC ========== -->
 <section class="pane" id="pane-market">
   <div class="kpis">
     <div class="kpi">
@@ -591,7 +589,6 @@ footer a:hover{color:var(--text);}
   </div>
 </section>
 
-<!-- ========== ESTRATEGIAS (E11 vs E6 historico) ========== -->
 <section class="pane" id="pane-strats">
 
   <div class="cc" style="background:rgba(91,141,239,.04);border-color:rgba(91,141,239,.2);">
@@ -659,7 +656,6 @@ footer a:hover{color:var(--text);}
     </div>
   </div>
 
-  <!-- Graph E11 -->
   <div class="cc">
     <div class="cc-h">
       <div>
@@ -677,7 +673,6 @@ footer a:hover{color:var(--text);}
     <div class="cc-body"><div id="hs-e11-chart" style="height:440px;"></div></div>
   </div>
 
-  <!-- Graph E6 -->
   <div class="cc">
     <div class="cc-h">
       <div>
@@ -718,7 +713,6 @@ footer a:hover{color:var(--text);}
 
 </section>
 
-<!-- ========== CONTEXTO ========== -->
 <section class="pane" id="pane-context">
   <div class="kpis">
     <div class="kpi">
@@ -799,7 +793,6 @@ footer a:hover{color:var(--text);}
   </div>
 </section>
 
-<!-- ========== PIPELINE ========== -->
 <section class="pane" id="pane-pipeline">
   <div class="kpis">
     <div class="kpi">
@@ -914,11 +907,12 @@ footer a:hover{color:var(--text);}
         <div class="est-grid">
           <div class="est-row"><span class="est-lab">Submodelo HMM</span><span class="est-val" id="e-e11-1">—</span></div>
           <div class="est-row"><span class="est-lab">Vol OK (≤0.80)</span><span class="est-val" id="e-e11-2">—</span></div>
-          <div class="est-row"><span class="est-lab">EMA200 slope &gt;0</span><span class="est-val" id="e-e11-3">—</span></div>
-          <div class="est-row"><span class="est-lab">XGBoost prob</span><span class="est-val" id="e-e11-4">—</span></div>
-          <div class="est-row"><span class="est-lab">Dead zone (±0.20)</span><span class="est-val" id="e-e11-5">—</span></div>
-          <div class="est-row"><span class="est-lab">Kelly %</span><span class="est-val" id="e-e11-6">—</span></div>
-          <div class="est-row"><span class="est-lab">Señal E11</span><span class="est-val" id="e-e11-7">—</span></div>
+          <div class="est-row"><span class="est-lab">Regimen BULL</span><span class="est-val" id="e-e11-3">—</span></div>
+          <div class="est-row"><span class="est-lab">EMA200 slope &gt; 0</span><span class="est-val" id="e-e11-4">—</span></div>
+          <div class="est-row"><span class="est-lab">XGBoost prob</span><span class="est-val" id="e-e11-5">—</span></div>
+          <div class="est-row"><span class="est-lab">Dead zone (+0.20)</span><span class="est-val" id="e-e11-6">—</span></div>
+          <div class="est-row"><span class="est-lab">Kelly %</span><span class="est-val" id="e-e11-7">—</span></div>
+          <div class="est-row"><span class="est-lab">Señal E11</span><span class="est-val" id="e-e11-8">—</span></div>
         </div>
       </div>
     </div>
@@ -938,7 +932,6 @@ footer a:hover{color:var(--text);}
   </div>
 </section>
 
-<!-- ========== TRADES ========== -->
 <section class="pane" id="pane-trades">
   <div class="cc" style="background:rgba(0,208,132,.04);border-color:rgba(0,208,132,.2);">
     <div style="padding:14px 18px;display:flex;align-items:center;gap:10px;">
@@ -987,7 +980,6 @@ footer a:hover{color:var(--text);}
   </div>
 </section>
 
-<!-- ========== EQUITY ========== -->
 <section class="pane" id="pane-equity">
   <div class="kpis">
     <div class="kpi"><div class="kpi-l">Equity actual</div><div class="kpi-v mono" id="eq-now">—</div><div class="kpi-s">USDT</div></div>
@@ -1019,7 +1011,6 @@ footer a:hover{color:var(--text);}
 
 </main>
 
-<!-- SIDEBAR -->
 <aside class="side">
 
   <div class="side-card">
@@ -1096,9 +1087,6 @@ footer a:hover{color:var(--text);}
 </footer>
 
 <script>
-/* ============================================================
-   CONFIG + GLOBAL STATE
-   ============================================================ */
 const PLOTLY_CFG = {displayModeBar:false, responsive:true};
 function num(a,b){return a!==null&&a!==undefined?a:(b!==null&&b!==undefined?b:null);}
 const LAYOUT_BASE = {
@@ -1135,7 +1123,6 @@ const STATE = {
   fng:[],
 };
 
-/* prepPlot helper */
 function prepPlot(divId){
   try{ Plotly.purge(divId); }catch(e){}
   const el = document.getElementById(divId);
@@ -1160,9 +1147,6 @@ function fmtPct(n,d=2){
 function setTxt(id,v){const el=document.getElementById(id);if(el) el.textContent=v;}
 function setCls(id,cls){const el=document.getElementById(id);if(el) el.className=cls;}
 
-/* ============================================================
-   TABS
-   ============================================================ */
 document.getElementById('tabs').addEventListener('click', e=>{
   if(!e.target.classList.contains('tab')) return;
   const pane = e.target.dataset.pane;
@@ -1171,7 +1155,6 @@ document.getElementById('tabs').addEventListener('click', e=>{
   e.target.classList.add('on');
   document.getElementById('pane-'+pane).classList.add('on');
 
-  // Re-render charts on tab switch so Plotly sizes correctly
   setTimeout(()=>{
     if(pane==='market') renderMarket();
     if(pane==='strats') renderStrats();
@@ -1183,22 +1166,21 @@ document.getElementById('tabs').addEventListener('click', e=>{
   },30);
 });
 
-/* ============================================================
-   DATA LOADING
-   ============================================================ */
 function normalizeBot(raw){
   if(!raw) return null;
-  // Map bot.py real structure to what the UI consumes
   const acc = raw.live_balance || {};
   const filters = raw.filters || {};
-  const pos = raw.position || {};
 
-  const trades = raw.trades || [];
-  // Split closed / open based on pnl_usdt being present
+  const trades = (raw.trades || []).map(t => ({
+    ...t,
+    entry_px: num(t.entry_px, t.entry_price),
+    exit_px: num(t.exit_px, t.exit_price),
+    size_pct: num(t.size_pct, t.pct_used),
+  }));
+
   const closed = trades.filter(t => t.close_time || t.exit_px !== undefined || t.pnl_usdt !== undefined);
   const open = trades.filter(t => !(t.close_time || t.exit_px !== undefined));
 
-  // Per-strategy stats
   const e11T = closed.filter(t => t.strategy==='E11');
   const e6T = closed.filter(t => t.strategy==='E6');
   function stratStats(arr){
@@ -1208,7 +1190,6 @@ function normalizeBot(raw){
     return {trades:arr.length, pnl, win_rate:wins/arr.length, avg_pnl:pnl/arr.length};
   }
 
-  // Drawdown
   let dd = 0;
   if(raw.equity_history && raw.equity_history.length){
     let peak = raw.equity_history[0].equity;
@@ -1344,7 +1325,6 @@ async function loadBinance(){
     }));
   }catch(e){
     console.warn('binance failed, falling back to bot candles',e);
-    // Fallback: use candles_1h from bot data
     if(STATE.bot && STATE.bot.candles_1h && STATE.bot.candles_1h.length){
       STATE.binanceCandles = STATE.bot.candles_1h.map(c=>({
         t: new Date(c.ts).getTime(),
@@ -1386,11 +1366,7 @@ async function loadFng(){
   }
 }
 
-/* ============================================================
-   HEADER + SIDEBAR UPDATES
-   ============================================================ */
 async function updateHeader(){
-  // BTC
   const btc = await loadBinancePrice('BTCUSDT');
   if(btc){
     const px = parseFloat(btc.lastPrice);
@@ -1402,7 +1378,6 @@ async function updateHeader(){
       el.className = 'tk-c mono ' + (ch>=0?'up':'down');
     }
   }
-  // ETH
   const eth = await loadBinancePrice('ETHUSDT');
   if(eth){
     const px = parseFloat(eth.lastPrice);
@@ -1414,7 +1389,6 @@ async function updateHeader(){
       el.className = 'tk-c mono ' + (ch>=0?'up':'down');
     }
   }
-  // F&G
   if(STATE.fng.length){
     const last = STATE.fng[STATE.fng.length-1];
     setTxt('h-fg', last.v);
@@ -1424,7 +1398,6 @@ async function updateHeader(){
       el.style.color = fgColor(last.v);
     }
   }
-  // Timestamp
   const now = new Date();
   setTxt('h-time', 'Actualizado ' + now.toLocaleDateString('es-ES',{day:'2-digit',month:'2-digit',year:'numeric'}) + ' ' + now.toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'}));
 }
@@ -1448,7 +1421,6 @@ function updateSidebar(){
   const b = STATE.bot;
   if(!b){ return; }
 
-  // Regimen
   const reg = (b.pipeline && b.pipeline.regime) ? b.pipeline.regime.toUpperCase() : '—';
   const regEl = document.getElementById('sb-reg');
   if(regEl){
@@ -1462,7 +1434,6 @@ function updateSidebar(){
   };
   setTxt('sb-reg-desc', regDesc[reg] || '—');
 
-  // Semaforo
   const vol = (b.pipeline && b.pipeline.vol_pct !== undefined) ? b.pipeline.vol_pct : null;
   if(vol !== null){
     let color, label, pctNum = Math.round(vol*100);
@@ -1475,7 +1446,6 @@ function updateSidebar(){
     setTxt('sb-sem-meta', 'Percentil '+pctNum+' · umbral 80');
   }
 
-  // Señal actual
   const sig = (b.signal && b.signal.action) ? b.signal.action.toUpperCase() : 'HOLD';
   const sigEl = document.getElementById('sb-sig');
   if(sigEl){
@@ -1484,7 +1454,6 @@ function updateSidebar(){
   }
   setTxt('sb-strat', (b.signal && b.signal.strategy) ? b.signal.strategy : 'Ninguna');
 
-  // Capital
   const eq = (b.account && b.account.equity !== undefined) ? b.account.equity : null;
   setTxt('sb-eq', eq!==null ? fmt(eq,2)+' USDT' : '—');
 
@@ -1496,7 +1465,6 @@ function updateSidebar(){
   }
   setTxt('sb-runs', b.runs || '—');
 
-  // F&G sidebar
   if(STATE.fng.length){
     const last = STATE.fng[STATE.fng.length-1];
     setTxt('sb-fg', last.v);
@@ -1510,9 +1478,6 @@ function updateSidebar(){
   }
 }
 
-/* ============================================================
-   INDICATORS
-   ============================================================ */
 function computeATR(candles, period=14){
   const atr = [];
   for(let i=0;i<candles.length;i++){
@@ -1576,9 +1541,6 @@ function ranking(arr, value){
   return (below/clean.length)*100;
 }
 
-/* ============================================================
-   OVERVIEW
-   ============================================================ */
 function renderOverview(){
   const b = STATE.bot; if(!b) return;
   const acc = b.account||{};
@@ -1602,7 +1564,6 @@ function renderOverview(){
   setTxt('ov-tr-s', wr!==null ? fmt(wr,1)+'% win rate' : '—');
   setTxt('ov-runs', b.runs || 0);
 
-  // Per-strategy stats
   const s = b.stats || {};
   const e11 = s.e11 || {};
   const e6 = s.e6 || {};
@@ -1615,7 +1576,6 @@ function renderOverview(){
   setTxt('ov-e6-wr', e6.win_rate!==undefined ? fmt(e6.win_rate*100,1)+'%' : '—');
   setTxt('ov-e6-avg', e6.avg_pnl!==undefined ? fmtPnl(e6.avg_pnl,4) : '—');
 
-  // Daily PnL
   renderDailyPnl();
   renderLastTrades();
 }
@@ -1672,9 +1632,6 @@ function renderLastTrades(){
   }).join('');
 }
 
-/* ============================================================
-   MARKET BTC
-   ============================================================ */
 function renderMarket(){
   const range = getActiveRange('mk-pbs', 3);
   const candles = filterCandles(STATE.binanceCandles, range);
@@ -1698,7 +1655,6 @@ function renderMarket(){
   }
   setTxt('mk-n', candles.length);
 
-  // Live trades from bot
   const b = STATE.bot;
   const liveTrades = ((b && b.trades && b.trades.closed) || []);
   const openTrades = ((b && b.trades && b.trades.open) || []);
@@ -1723,7 +1679,6 @@ function renderMarket(){
     hoverlabel:{bgcolor:'#131620',bordercolor:'#2A2F42'},
   }];
 
-  // Markers
   tradesInRange.forEach(t=>{
     const col = tradeColor(t.strategy, t.side);
     const openT = t.open_time;
@@ -1754,7 +1709,6 @@ function renderMarket(){
     }
   });
 
-  // Open positions
   openTrades.forEach(t=>{
     if(!t.open_time||!t.entry_px) return;
     const ot = new Date(t.open_time || t.open_ts).getTime();
@@ -1774,7 +1728,6 @@ function renderMarket(){
   });
 
   prepPlot('mk-chart');
-  // Bandas de regimen HMM en el fondo
   const regHist = (b && b.regime_history) ? b.regime_history : [];
   const spans = regimeSpansFromHistory(regHist, tStart, tEnd);
   const shapes = regimeBandShapes(spans, tStart, tEnd);
@@ -1793,8 +1746,6 @@ function tradeColor(strat, side){
   return side==='LONG' ? COLORS.e6_long : COLORS.e6_short;
 }
 
-/* Convierte regime_history [{ts,regime}] en spans continuos [{start,end,regime}]
-   y los corta al rango visible. */
 function regimeSpansFromHistory(history, tStart, tEnd){
   if(!history || !history.length) return [];
   const spans = [];
@@ -1808,11 +1759,9 @@ function regimeSpansFromHistory(history, tStart, tEnd){
       start = h.ts;
     }
   }
-  // Ultimo tramo: cerramos en el fin del rango visible
   if(current !== null && start !== null){
     spans.push({start, end:new Date(tEnd).toISOString(), regime:current});
   }
-  // Filtrar spans que caigan fuera del rango
   return spans.filter(s=>{
     const se = new Date(s.start).getTime();
     const ee = new Date(s.end).getTime();
@@ -1849,9 +1798,6 @@ function getActiveRange(containerId, def){
   return parseFloat(el.dataset.r);
 }
 
-/* ============================================================
-   STRATEGIES (historical)
-   ============================================================ */
 function renderStrats(){
   const h = STATE.hist;
   const statusEl = document.getElementById('hs-status');
@@ -1922,7 +1868,6 @@ function renderHistChart(tag, h, trades){
   const candles = h.candles || [];
   if(!candles.length){ prepPlot(divId); document.getElementById(divId).innerHTML = emptyHtml('Sin candles'); return; }
 
-  // Filter by range
   let candlesF = candles;
   if(range>0){
     const lastT = new Date(candles[candles.length-1].t).getTime();
@@ -1935,8 +1880,6 @@ function renderHistChart(tag, h, trades){
   const tEnd = new Date(candlesF[candlesF.length-1].t).getTime();
 
   const traces = [];
-
-  // Regime bands
   const spans = h.regime_spans || [];
   const shapes = [];
   spans.forEach(s=>{
@@ -1952,7 +1895,6 @@ function renderHistChart(tag, h, trades){
     });
   });
 
-  // Candlestick
   traces.push({
     type:'candlestick',
     x: candlesF.map(c=>c.t),
@@ -1965,7 +1907,6 @@ function renderHistChart(tag, h, trades){
     name:'BTC',
   });
 
-  // Trade markers
   const tradesF = trades.filter(t=>{
     const ot = new Date(t.open_time || t.open_ts).getTime();
     return ot>=tStart && ot<=tEnd;
@@ -1990,7 +1931,6 @@ function renderHistChart(tag, h, trades){
         marker:{symbol:'circle', size:5, color:(t.pnl_pct>=0?COLORS.green:COLORS.red), opacity:0.6},
         showlegend:false, hoverinfo:'skip',
       });
-      // Connecting line
       traces.push({
         type:'scatter', mode:'lines',
         x:[t.open_time || t.open_ts, t.close_time || t.close_ts], y:[t.entry_px,t.exit_px],
@@ -2030,9 +1970,6 @@ function renderDist(divId, trades, baseCol){
   }, PLOTLY_CFG);
 }
 
-/* ============================================================
-   CONTEXT
-   ============================================================ */
 function renderContext(){
   const candles = STATE.binanceCandles;
   if(candles.length){
@@ -2058,7 +1995,6 @@ function renderContext(){
     setTxt('ctx-rsi-l', rsiLbl);
   }
 
-  // F&G KPI
   if(STATE.fng.length){
     const last = STATE.fng[STATE.fng.length-1];
     setTxt('ctx-fg', last.v);
@@ -2163,15 +2099,11 @@ function renderVzChart(){
   }, PLOTLY_CFG);
 }
 
-/* ============================================================
-   PIPELINE
-   ============================================================ */
 function renderPipeline(){
   const b = STATE.bot; if(!b) return;
   const p = b.pipeline||{};
   const s = b.signal||{};
 
-  // KPIs
   const sigEl = document.getElementById('pp-sig');
   if(sigEl){
     sigEl.textContent = (s.action||'HOLD').toUpperCase();
@@ -2186,7 +2118,6 @@ function renderPipeline(){
   setTxt('pp-fg', fg!==null ? fg : '—');
   setTxt('pp-fg-l', fg!==null ? fgLabel(fg) : 'alternative.me');
 
-  // E11 nodes
   const regimeNow = (p.regime||'').toUpperCase();
   const regBull = p.regime_e11_ok !== undefined ? !!p.regime_e11_ok : regimeNow==='BULL';
   const modelName = p.submodel || (regBull ? 'xgb_bull' : 'xgb_bear');
@@ -2208,7 +2139,6 @@ function renderPipeline(){
   setTxt('pp-e11-sig', sigE11);
   document.getElementById('pp-e11-n5').className = 'pipe-node ' + (sigE11==='LONG'?'ok':'');
 
-  // E6 nodes
   const e11Hold = !(s.strategy==='E11' && s.action!=='HOLD');
   setTxt('pp-e6-hold', e11Hold?'✓':'✗');
   document.getElementById('pp-e6-n1').className = 'pipe-node ' + (e11Hold?'ok':'ko');
@@ -2223,7 +2153,6 @@ function renderPipeline(){
   setTxt('pp-e6-sig', sigE6);
   document.getElementById('pp-e6-n5').className = 'pipe-node ' + (sigE6!=='HOLD'?'ok':'');
 
-  // Confianza bars
   const DELTA_E11 = 0.20;
   const DELTA_E6 = 0.30;
   const cnfE11 = probE11!==null && probE11!==undefined ? Math.min(Math.abs(probE11-0.5)/DELTA_E11*100, 100) : 0;
@@ -2239,22 +2168,30 @@ function renderPipeline(){
   document.getElementById('cnf-e6-s').style.width = cnfE6S+'%';
   document.getElementById('cnf-e6-s-v').textContent = fmt(cnfE6S,0)+'% · δ=0.30';
 
-  // Estado boxes
   setTxt('e-e11-1', modelName+' · '+(regimeNow||'—'));
   document.getElementById('e-e11-1').style.color = COLORS.green;
-  setTxt('e-e11-2', p.vol_pct!==undefined ? (volOk?'✓ ':'✗ ')+fmt(p.vol_pct,3) : '—');
-  document.getElementById('e-e11-2').style.color = volOk?COLORS.green:COLORS.red;
-  setTxt('e-e11-3', regBull ? '✓ BULL' : '✗ '+(regimeNow||'—'));
-  document.getElementById('e-e11-3').style.color = regBull?COLORS.green:COLORS.red;
-  setTxt('e-e11-4', p.ema200_slope!==undefined ? (emaUp ? '✓ '+fmt(p.ema200_slope,6) : '✗ '+fmt(p.ema200_slope,6)) : '—');
-  document.getElementById('e-e11-4').style.color = emaUp?COLORS.green:COLORS.red;
-  setTxt('e-e11-5', probE11!==null && probE11!==undefined ? fmt(probE11,4) : 'No calculado');
-  setTxt('e-e11-6', probE11!==null && probE11!==undefined ? ((p.in_dead_zone_e11 ? 'dentro' : 'fuera')) : '—');
+
+  setTxt('e-e11-2', p.vol_pct!==undefined ? (volOk ? '✓ ' : '✗ ') + fmt(p.vol_pct,3) : '—');
+  document.getElementById('e-e11-2').style.color = volOk ? COLORS.green : COLORS.red;
+
+  setTxt('e-e11-3', regBull ? '✓ BULL' : '✗ ' + (regimeNow || '—'));
+  document.getElementById('e-e11-3').style.color = regBull ? COLORS.green : COLORS.red;
+
+  setTxt('e-e11-4', p.ema200_slope!==undefined ? (emaUp ? '✓ ' : '✗ ') + fmt(p.ema200_slope,6) : '—');
+  document.getElementById('e-e11-4').style.color = emaUp ? COLORS.green : COLORS.red;
+
+  setTxt('e-e11-5', probE11!==null && probE11!==undefined ? fmt(probE11,4) : '—');
+
+  setTxt('e-e11-6', probE11!==null && probE11!==undefined ? (p.in_dead_zone_e11 ? 'Dentro' : 'Fuera') : '—');
+  document.getElementById('e-e11-6').style.color = p.in_dead_zone_e11 ? COLORS.red : COLORS.green;
+
   const kellyPct = s.kelly_pct!==undefined ? s.kelly_pct : null;
   setTxt('e-e11-7', kellyPct!==null ? fmt(kellyPct*100,1)+'%' : '—');
+
   const sigE11El = document.getElementById('e-e11-8');
   if(sigE11El){
-    sigE11El.innerHTML = `<span class="sig ${sigE11==='LONG'?'sig-long':'sig-hold'}">${sigE11}</span>`;
+    const cls = sigE11==='LONG' ? 'sig-long' : 'sig-hold';
+    sigE11El.innerHTML = `<span class="sig ${cls}">${sigE11}</span>`;
   }
 
   setTxt('e-e6-1', p.vol_pct!==undefined ? (volOk?'✓ ':'✗ ')+fmt(p.vol_pct,3) : '—');
@@ -2318,9 +2255,6 @@ function renderProbHistory(){
   }, PLOTLY_CFG);
 }
 
-/* ============================================================
-   TRADES
-   ============================================================ */
 let tradeFilter = 'all';
 function renderTrades(){
   const b = STATE.bot; if(!b) return;
@@ -2340,7 +2274,6 @@ function renderTrades(){
     setTxt('tr-wr','—'); setTxt('tr-avg','—'); setTxt('tr-best','—'); setTxt('tr-worst','—');
   }
 
-  // Bar chart
   if(!trades.length){
     prepPlot('tr-bars');
     document.getElementById('tr-bars').innerHTML = emptyHtml('Aun no hay trades ejecutados');
@@ -2359,7 +2292,6 @@ function renderTrades(){
     }, PLOTLY_CFG);
   }
 
-  // Table
   const tbody = document.getElementById('tr-hist');
   if(!trades.length){
     tbody.innerHTML = '<tr><td colspan="11" class="empty">Sin trades</td></tr>';
@@ -2378,16 +2310,13 @@ function renderTrades(){
         <td class="r">${fmt(t.exit_px,0)}</td>
         <td class="r ${pnlCls}">${fmtPnl(t.pnl_usdt,4)}</td>
         <td class="r ${pnlCls}">${fmtPct(t.pnl_pct||0)}</td>
-        <td class="mono" style="font-size:11px;">${t.size_pct!==undefined ? fmt(t.size_pct*100,1)+'%' : '—'}</td>
+        <td class="mono" style="font-size:11px;">${t.size_pct!==undefined && t.size_pct!==null ? fmt(t.size_pct <= 1 ? t.size_pct*100 : t.size_pct, 1)+'%' : '—'}</td>
         <td style="font-size:10px;color:var(--text3);">${t.exit_reason||'—'}</td>
       </tr>`;
     }).join('');
   }
 }
 
-/* ============================================================
-   EQUITY
-   ============================================================ */
 function renderEquity(){
   const b = STATE.bot; if(!b) return;
   const acc = b.account || {};
@@ -2406,7 +2335,6 @@ function renderEquity(){
   const dd = (b.stats && b.stats.drawdown_max) ? b.stats.drawdown_max*100 : 0;
   setTxt('eq-dd', fmt(dd,2)+'%');
 
-  // Equity curve
   const eqHist = b.equity_history || [];
   const range = getActiveRange('eq-pbs', 7);
   let data = eqHist;
@@ -2420,7 +2348,6 @@ function renderEquity(){
   if(!data.length && eqHist.length){ data = eqHist; }
 
   if(!data.length){
-    // Draw flat line
     data = [
       {t:new Date(Date.now()-3600000).toISOString(), equity:acc.initial_equity},
       {t:new Date().toISOString(), equity:acc.equity},
@@ -2439,7 +2366,6 @@ function renderEquity(){
     yaxis:{...LAYOUT_BASE.yaxis, title:{text:'USDT',font:{size:10,color:'#5A5F74'}}},
   }, PLOTLY_CFG);
 
-  // Daily PnL
   const trades = (b.trades && b.trades.closed) || [];
   if(!trades.length){
     prepPlot('eq-daily');
@@ -2471,9 +2397,6 @@ function renderEquity(){
   }
 }
 
-/* ============================================================
-   BUTTON HANDLERS
-   ============================================================ */
 function bindPbs(containerId, cb){
   document.getElementById(containerId).addEventListener('click', e=>{
     if(!e.target.classList.contains('pb')) return;
@@ -2498,11 +2421,7 @@ document.getElementById('tr-filter').addEventListener('click', e=>{
   renderTrades();
 });
 
-/* ============================================================
-   INIT
-   ============================================================ */
 async function init(){
-  // Load bot first so Binance can fallback to candles_1h if needed
   await loadBot();
   await Promise.all([loadHist(), loadBinance(), loadFng()]);
   await updateHeader();
@@ -2512,7 +2431,6 @@ async function init(){
 
 init();
 
-// Auto-refresh
 setInterval(async ()=>{
   await loadBot();
   await updateHeader();
