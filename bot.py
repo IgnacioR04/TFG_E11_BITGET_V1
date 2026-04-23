@@ -9,12 +9,11 @@ Pipeline live
 5. Si E11 no entra, evalua E6
 6. Si ninguna entra, no opera
 
-Reglas clave
+Reglas clave (alineadas con notebook de correccion)
 - E11 tiene prioridad absoluta
-- E11 solo LONG
-- E11 requiere regimen BULL
-- E11 requiere EMA200 slope > 0
-- E6 actua solo como fallback
+- E11 solo LONG: entra si prob - 0.5 > 0.20, regime BULL, vol_ok, EMA200 slope > 0
+- E6 actua solo como fallback cuando E11 no entra
+- E6 LONG si prob - 0.5 > 0.30, E6 SHORT si 0.5 - prob > 0.30, solo necesita vol_ok
 - La posicion se cierra al cambiar la vela 1h siguiente a la de apertura
 """
 
@@ -47,8 +46,7 @@ if LIVE_MODE:
         print("[E11] bitget_api.py no encontrado — solo paper")
 
 # ── Parametros estrategia E11 ─────────────────────────────────────────────────
-DELTA_GLOBAL    = 0.05    # dead zone global previa (filtro 3 del pipeline TFG)
-DELTA           = 0.20    # dead zone E11 especifica
+DELTA           = 0.20    # dead zone E11: prob - 0.5 > 0.20 para entrar LONG
 LEVERAGE        = 5       # apalancamiento fijo
 BASE_PCT        = 0.20    # sizing minimo (20% del capital)
 PCT_MAX         = 0.55    # sizing maximo (55% del capital)
@@ -56,12 +54,11 @@ KELLY_DIV       = 3.0     # divisor Kelly fraccional
 GARCH_VOL_UMBRAL= 0.80    # percentil de corte de volatilidad
 EMA_SPAN        = 200     # periodo EMA tendencia diaria
 EMA_SLOPE_DAYS  = 5       # ventana pendiente EMA200
-ALLOW_SHORTS    = False   # shorts desactivados en E11
 COMISION        = 0.0004  # 0.04% por lado
-YF_SIGNAL_PERIOD = "450d" # para alinear señales con el histórico y permitir EMA200/HMM
+YF_SIGNAL_PERIOD = "450d" # para alinear señales con el historico y permitir EMA200/HMM
 
 # ── Parametros estrategia E6 (fallback) ──────────────────────────────────────
-E6_DELTA   = 0.30    # dead zone E6 — mas selectivo
+E6_DELTA   = 0.30    # dead zone E6: |prob - 0.5| > 0.30 para entrar
 E6_PCT     = 0.40    # sizing fijo 40% del capital
 # E6 opera en cualquier regimen (BULL, BEAR, SIDEWAYS) con LONG y SHORT
 # usando el submodelo XGBoost correspondiente al regimen HMM del momento.
@@ -130,7 +127,6 @@ def load_state():
                 return json.loads(content)
         except (json.JSONDecodeError, ValueError) as e:
             print(f"[E11] state.json corrupto ({e}) — reiniciando estado")
-    # Si no existe o esta corrupto, leer equity de Bitget
     print("[E11] Inicializando state.json...")
     initial_eq = 0.0
     if LIVE_MODE:
@@ -149,10 +145,6 @@ def save_state(state):
 
 # ── Descarga de datos ─────────────────────────────────────────────────────────
 def get_bitget_candles(client, symbol, granularity, limit=250):
-    """
-    Descarga velas de Bitget. Devuelve DataFrame con columnas OHLCV.
-    granularity: '1H', '4H', '1D', etc.
-    """
     try:
         data = client._get("/api/v2/mix/market/candles", {
             "symbol": symbol,
@@ -163,7 +155,6 @@ def get_bitget_candles(client, symbol, granularity, limit=250):
         rows = data.get("data", [])
         if not rows:
             return pd.DataFrame()
-        # Bitget devuelve: [timestamp, open, high, low, close, volume, ...]
         df = pd.DataFrame(rows, columns=["ts", "open", "high", "low", "close", "vol", "quote_vol"])
         df["ts"] = pd.to_datetime(df["ts"].astype(float), unit="ms", utc=True)
         df = df.set_index("ts").sort_index()
@@ -192,15 +183,12 @@ def download_hourly_yfinance(ticker, period=YF_SIGNAL_PERIOD):
     except Exception as e:
         print(f"[E11] yfinance {ticker} fallo: {e}")
         return pd.DataFrame()
+
 def download_minute_yfinance(ticker, period="7d"):
     try:
         raw = yf.download(
-            ticker,
-            period=period,
-            interval="1m",
-            auto_adjust=False,
-            progress=False,
-            prepost=False,
+            ticker, period=period, interval="1m",
+            auto_adjust=False, progress=False, prepost=False,
         )
         if raw.empty:
             return pd.DataFrame()
@@ -216,7 +204,6 @@ def download_minute_yfinance(ticker, period="7d"):
     except Exception as e:
         print(f"[E11] yfinance 1m {ticker} fallo: {e}")
         return pd.DataFrame()
-
 
 def build_live_hour_from_minutes(df_1m):
     if df_1m is None or df_1m.empty:
@@ -234,30 +221,23 @@ def build_live_hour_from_minutes(df_1m):
     })
     return current_hour, row
 
-
 def merge_hourly_with_live(df_1h, df_1m):
     if df_1h is None or df_1h.empty:
         return df_1h, False
     if df_1m is None or df_1m.empty:
         return df_1h.sort_index(), False
-
     live_ts, live_row = build_live_hour_from_minutes(df_1m)
     if live_ts is None:
         return df_1h.sort_index(), False
-
     out = df_1h.copy().sort_index()
     if live_ts in out.index:
         out = out.drop(index=live_ts)
     out.loc[live_ts, ["open", "high", "low", "close", "vol"]] = [
-        live_row["open"],
-        live_row["high"],
-        live_row["low"],
-        live_row["close"],
-        live_row["vol"],
+        live_row["open"], live_row["high"], live_row["low"],
+        live_row["close"], live_row["vol"],
     ]
     out = out.sort_index()
     return out, True
-
 
 def build_live_market_data(ticker, minute_ticker=None, period_1h=YF_SIGNAL_PERIOD):
     base = download_hourly_yfinance(ticker, period=period_1h)
@@ -265,28 +245,18 @@ def build_live_market_data(ticker, minute_ticker=None, period_1h=YF_SIGNAL_PERIO
     merged, used_live = merge_hourly_with_live(base, df_1m)
     return merged, df_1m, used_live
 
-
 def empty_position():
     return {
-        "open": False,
-        "side": None,
-        "strategy": None,
-        "entry_price": None,
-        "size_btc": None,
-        "size_usdt": None,
-        "pct_used": None,
-        "leverage": None,
-        "open_time": None,
-        "open_candle_ts": None,
-        "order_id": None,
+        "open": False, "side": None, "strategy": None,
+        "entry_price": None, "size_btc": None, "size_usdt": None,
+        "pct_used": None, "leverage": None, "open_time": None,
+        "open_candle_ts": None, "order_id": None,
     }
-
 
 def compute_hmm_regime_filters(df_btc_1h):
     daily = df_btc_1h.resample("1D").agg({"close":"last", "vol":"sum"}).dropna()
     if len(daily) < 230:
         return None
-
     df_daily = daily.copy()
     df_daily["log_ret"] = np.log(df_daily["close"] / df_daily["close"].shift(1))
     df_daily["vol_roll_20d"] = df_daily["log_ret"].rolling(20).std()
@@ -296,14 +266,11 @@ def compute_hmm_regime_filters(df_btc_1h):
     df_daily = df_daily.dropna()
     if len(df_daily) < 120:
         return None
-
     if GaussianHMM is None:
         return None
-
     X_hmm = df_daily[["log_ret", "vol_roll_20d", "volume_zscore"]].copy()
     scaler = StandardScaler()
     X_sc = scaler.fit_transform(X_hmm)
-
     best_m = None
     best_s = -np.inf
     for seed in range(20):
@@ -316,10 +283,8 @@ def compute_hmm_regime_filters(df_btc_1h):
                 best_m = m
         except Exception:
             continue
-
     if best_m is None:
         return None
-
     states = best_m.predict(X_sc)
     df_daily["state_raw"] = states
     mean_ret = df_daily.groupby("state_raw")["log_ret"].mean()
@@ -329,7 +294,6 @@ def compute_hmm_regime_filters(df_btc_1h):
     df_daily["vol_percentile"] = df_daily["vol_roll_20d"].expanding().rank(pct=True)
     ema200 = df_daily["close"].ewm(span=EMA_SPAN, adjust=False).mean()
     df_daily["ema200_slope"] = ema200 - ema200.shift(EMA_SLOPE_DAYS)
-
     last = df_daily.iloc[-1]
     return {
         "regime": str(last["regime"]),
@@ -337,7 +301,6 @@ def compute_hmm_regime_filters(df_btc_1h):
         "ema200_slope": float(last["ema200_slope"]),
         "pipeline_mode": "HMM_REAL"
     }
-
 
 def get_fear_greed(last_known=None):
     try:
@@ -350,10 +313,6 @@ def get_fear_greed(last_known=None):
         return last_known if last_known is not None else 0.5
 
 def download_macro_yfinance():
-    """
-    Descarga datos diarios de Gold, SPY y DXY con yfinance.
-    Devuelve DataFrames o None si falla.
-    """
     macro = {}
     for ticker, key in [("GC=F", "gold"), ("SPY", "spy"), ("DX-Y.NYB", "dxy")]:
         try:
@@ -362,7 +321,6 @@ def download_macro_yfinance():
             if df.empty:
                 macro[key] = None
                 continue
-            # Limpiar columnas MultiIndex si las hay
             if isinstance(df.columns, pd.MultiIndex):
                 df.columns = df.columns.get_level_values(0)
             close_col = "Adj Close" if "Adj Close" in df.columns else "Close"
@@ -386,125 +344,71 @@ def rsi(series, period=14):
     return 100 - (100 / (1 + rs))
 
 def calc_features(df_btc, df_eth, macro, fg_norm):
-    """
-    Calcula las 26 features sobre el ultimo cierre de df_btc 1H.
-    Devuelve Series con los valores o None si hay error.
-    """
     df = df_btc.copy()
-    c  = df["close"]
-    h  = df["high"]
-    l  = df["low"]
-    v  = df["vol"]
-
-    # Returns
+    c = df["close"]; h = df["high"]; l = df["low"]; v = df["vol"]
     log_ret_1h = np.log(c / c.shift(1))
     df["log_ret_1h"] = log_ret_1h
     df["log_ret_4h"] = log_ret_1h.rolling(4).sum()
     df["log_ret_1d"] = log_ret_1h.rolling(24).sum()
-
-    # ETH
     if df_eth is not None and not df_eth.empty:
         eth_aligned = df_eth["close"].reindex(df.index, method="ffill")
         df["log_ret_eth"] = np.log(eth_aligned / eth_aligned.shift(1))
-        df["rsi_eth"]     = rsi(eth_aligned, 14)
-        log_ret_eth_s     = df["log_ret_eth"]
-        df["corr_btc_eth_24h"] = log_ret_1h.rolling(24).corr(log_ret_eth_s)
+        df["rsi_eth"] = rsi(eth_aligned, 14)
+        df["corr_btc_eth_24h"] = log_ret_1h.rolling(24).corr(df["log_ret_eth"])
     else:
-        df["log_ret_eth"]      = 0.0
-        df["rsi_eth"]          = 50.0
-        df["corr_btc_eth_24h"] = 0.5
-
-    # Macro (daily → ffill a 1h)
+        df["log_ret_eth"] = 0.0; df["rsi_eth"] = 50.0; df["corr_btc_eth_24h"] = 0.5
     for key, col in [("gold", "log_ret_gold"), ("dxy", "log_ret_dxy")]:
         if macro.get(key) is not None:
             s = macro[key].reindex(df.index, method="ffill")
             df[col] = np.log(s / s.shift(1)).fillna(0)
         else:
             df[col] = 0.0
-
-    # EMAs
-    ema21  = c.ewm(span=21, adjust=False).mean()
-    ema50  = c.ewm(span=50, adjust=False).mean()
+    ema21 = c.ewm(span=21, adjust=False).mean()
+    ema50 = c.ewm(span=50, adjust=False).mean()
     sma200 = c.rolling(200).mean()
-    df["ema21_diff"]  = (c - ema21)  / c
-    df["ema50_diff"]  = (c - ema50)  / c
+    df["ema21_diff"] = (c - ema21) / c
+    df["ema50_diff"] = (c - ema50) / c
     df["sma200_diff"] = (c - sma200) / c
-
-    # MACD
     ema12 = c.ewm(span=12, adjust=False).mean()
     ema26 = c.ewm(span=26, adjust=False).mean()
-    macd_line   = (ema12 - ema26) / c
-    macd_sig    = macd_line.ewm(span=9, adjust=False).mean()
-    df["macd"]        = macd_line
-    df["macd_signal"] = macd_sig
-    df["macd_hist"]   = macd_line - macd_sig
-
-    # RSI
+    macd_line = (ema12 - ema26) / c
+    macd_sig = macd_line.ewm(span=9, adjust=False).mean()
+    df["macd"] = macd_line; df["macd_signal"] = macd_sig; df["macd_hist"] = macd_line - macd_sig
     df["rsi_14"] = rsi(c, 14)
-
-    # ROC
-    df["roc_6"]  = ((c - c.shift(6))  / c.shift(6)) * 100.0
+    df["roc_6"] = ((c - c.shift(6)) / c.shift(6)) * 100.0
     df["roc_12"] = ((c - c.shift(12)) / c.shift(12)) * 100.0
     df["roc_24"] = ((c - c.shift(24)) / c.shift(24)) * 100.0
     df["mom_12"] = (c - c.shift(12)) / c
-
-    # ATR
-    tr = pd.concat([
-        h - l,
-        (h - c.shift(1)).abs(),
-        (l - c.shift(1)).abs()
-    ], axis=1).max(axis=1)
+    tr = pd.concat([h - l, (h - c.shift(1)).abs(), (l - c.shift(1)).abs()], axis=1).max(axis=1)
     atr14 = tr.rolling(14).mean()
     df["atr_pct"] = atr14 / c
-
-    # Bollinger
-    sma20    = c.rolling(20).mean()
-    std20    = c.rolling(20).std()
-    bb_upper = sma20 + 2 * std20
-    bb_lower = sma20 - 2 * std20
+    sma20 = c.rolling(20).mean(); std20 = c.rolling(20).std()
+    bb_upper = sma20 + 2 * std20; bb_lower = sma20 - 2 * std20
     df["bb_width"] = (bb_upper - bb_lower) / sma20
-    df["bb_pct"]   = (c - bb_lower) / (bb_upper - bb_lower + 1e-10)
-
-    # Vol rolling
+    df["bb_pct"] = (c - bb_lower) / (bb_upper - bb_lower + 1e-10)
     df["vol_roll_24h"] = log_ret_1h.rolling(24).std()
-
-    # OBV
     direction = np.sign(log_ret_1h.fillna(0))
     obv = (v * direction).cumsum()
-    obv_mean = obv.rolling(24).mean()
-    obv_std  = obv.rolling(24).std()
+    obv_mean = obv.rolling(24).mean(); obv_std = obv.rolling(24).std()
     df["obv_norm"] = (obv - obv_mean) / (obv_std + 1e-10)
-
-    # Volume z-score
-    vol_mean = v.rolling(24).mean()
-    vol_std  = v.rolling(24).std()
+    vol_mean = v.rolling(24).mean(); vol_std = v.rolling(24).std()
     df["volume_zscore"] = (v - vol_mean) / (vol_std + 1e-10)
-
-    # Fear & Greed
     df["fear_greed_norm"] = fg_norm
-
     last = df[FEATURE_COLS].iloc[-1]
     if last.isna().any():
         print(f"[E11] Features con NaN: {last[last.isna()].index.tolist()}")
         last = last.fillna(0)
-
     return last
 
-# ── Filtros ───────────────────────────────────────────────────────────────────
+# ── Filtros heuristicos (fallback si HMM falla) ──────────────────────────────
 def get_regime(df_btc_1h):
-    """
-    Heuristica HMM simplificada basada en retorno y vol rolling 20 dias.
-    Usa datos 1h agrupados a dia.
-    """
     daily_close = df_btc_1h["close"].resample("1D").last().dropna()
     if len(daily_close) < 22:
         return "SIDEWAYS"
     log_ret = np.log(daily_close / daily_close.shift(1)).dropna()
-    ret20   = log_ret.rolling(20).sum().iloc[-1]
-    vol20   = log_ret.rolling(20).std().iloc[-1]
-    # Percentil de vol sobre toda la serie
+    ret20 = log_ret.rolling(20).sum().iloc[-1]
+    vol20 = log_ret.rolling(20).std().iloc[-1]
     vol_percentile = (log_ret.rolling(20).std().dropna() < vol20).mean()
-
     if ret20 > 0 and vol_percentile < 0.70:
         return "BULL"
     elif ret20 < 0 and vol_percentile > 0.70:
@@ -513,13 +417,10 @@ def get_regime(df_btc_1h):
         return "SIDEWAYS"
 
 def get_vol_percentile(df_btc_1h):
-    """
-    Proxy GARCH: percentil de la vol rolling 20d respecto a los ultimos 504 dias.
-    """
     daily_close = df_btc_1h["close"].resample("1D").last().dropna()
     if len(daily_close) < 22:
         return 0.5
-    log_ret  = np.log(daily_close / daily_close.shift(1)).dropna()
+    log_ret = np.log(daily_close / daily_close.shift(1)).dropna()
     vol_roll = log_ret.rolling(20).std().dropna()
     if len(vol_roll) < 2:
         return 0.5
@@ -528,14 +429,11 @@ def get_vol_percentile(df_btc_1h):
     return float(pct)
 
 def get_ema200_slope(df_btc_1h):
-    """
-    EMA200 sobre cierres diarios. Devuelve pendiente = EMA200[hoy] - EMA200[hoy-5].
-    """
     daily_close = df_btc_1h["close"].resample("1D").last().dropna()
     if len(daily_close) < 205:
-        return 1.0  # si no hay suficientes datos, asumir alcista
+        return 1.0
     ema200 = daily_close.ewm(span=EMA_SPAN, adjust=False).mean()
-    slope  = float(ema200.iloc[-1] - ema200.iloc[-1 - EMA_SLOPE_DAYS])
+    slope = float(ema200.iloc[-1] - ema200.iloc[-1 - EMA_SLOPE_DAYS])
     return slope
 
 # ── Modelo XGBoost ────────────────────────────────────────────────────────────
@@ -548,7 +446,6 @@ def load_model(path):
         return None
 
 def predict_proba(model, x):
-    """x: array shape (1, 26)"""
     try:
         prob = model.predict_proba(x)[0, 1]
         return float(prob)
@@ -558,55 +455,48 @@ def predict_proba(model, x):
 
 # ── Kelly sizing ──────────────────────────────────────────────────────────────
 def kelly_sizing(prob):
-    """Kelly fraccional. Usa abs para soportar LONG (prob>0.5) y SHORT (prob<0.5)."""
-    edge = 2 * abs(prob - 0.5)
-    pct  = BASE_PCT + edge / KELLY_DIV
+    """Kelly fraccional para E11. prob siempre > 0.5 cuando se llama."""
+    edge = 2 * (prob - 0.5)
+    pct = BASE_PCT + edge / KELLY_DIV
     return min(pct, PCT_MAX)
 
 # ── Condiciones de parada ─────────────────────────────────────────────────────
 def check_auto_pause(state, equity, reason=None):
     initial = state.get("initial_equity", 0)
-    # Drawdown > 50%
     if initial > 0 and equity < initial * 0.50:
-        state["paused"]       = True
+        state["paused"] = True
         state["pause_reason"] = "DRAWDOWN > 50%"
         print("[E11] *** AUTO-PAUSE: drawdown > 50% ***")
         return True
-    # 5 perdidas consecutivas
     if state.get("consecutive_losses", 0) >= 5:
-        state["paused"]       = True
+        state["paused"] = True
         state["pause_reason"] = "5 trades negativos consecutivos"
         print("[E11] *** AUTO-PAUSE: 5 perdidas consecutivas ***")
         return True
-    # 3 errores API seguidos
     if state.get("consecutive_errors", 0) >= 3:
-        state["paused"]       = True
+        state["paused"] = True
         state["pause_reason"] = "3 errores API consecutivos"
         print("[E11] *** AUTO-PAUSE: 3 errores API consecutivos ***")
         return True
     if reason:
-        state["paused"]       = True
+        state["paused"] = True
         state["pause_reason"] = reason
         return True
     return False
 
 # ── Publicar data.json ────────────────────────────────────────────────────────
 def publish_data(state, btc_price, filters, prob):
-    trades    = state.get("trades", [])
-    wins      = [t for t in trades if t.get("pnl_usdt", 0) > 0]
-    win_rate  = round(len(wins) / len(trades) * 100, 1) if trades else 0.0
+    trades = state.get("trades", [])
+    wins = [t for t in trades if t.get("pnl_usdt", 0) > 0]
+    win_rate = round(len(wins) / len(trades) * 100, 1) if trades else 0.0
     total_pnl = round(sum(t.get("pnl_usdt", 0) for t in trades), 4)
-
     bal = state.get("live_balance", {"equity": 0, "available": 0, "unrealized_pl": 0})
-
-    # PnL diario
     daily_pnl = {}
     for t in trades:
         day = str(t.get("close_time", ""))[:10]
         if not day or day == "None":
             continue
         daily_pnl[day] = round(daily_pnl.get(day, 0) + t.get("pnl_usdt", 0), 4)
-
     data = {
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "btc_price": round(btc_price, 2),
@@ -635,8 +525,6 @@ def publish_data(state, btc_price, filters, prob):
         "candles_1h": state.get("candles_1h", []),
         "daily_pnl": [{"date": k, "pnl": v} for k, v in sorted(daily_pnl.items())],
     }
-
-
     DATA_FILE.parent.mkdir(parents=True, exist_ok=True)
     with open(DATA_FILE, "w") as f:
         json.dump(data, f, separators=(",", ":"), default=str)
@@ -644,50 +532,40 @@ def publish_data(state, btc_price, filters, prob):
 
 # ── Registrar cierre de trade ─────────────────────────────────────────────────
 def _register_trade_close(state, pos, exit_price, close_time, exit_reason):
-    """
-    Registra un trade cerrado en state["trades"] y limpia la posicion.
-    Aplica comision por ambos lados (apertura + cierre) como en el backtest.
-    """
     entry = pos.get("entry_price", exit_price)
     size_btc = pos.get("size_btc", 0)
     size_usdt = pos.get("size_usdt", 0)
     leverage = pos.get("leverage", 1)
     side = pos.get("side", "LONG")
-
     direction_sign = 1 if side == "LONG" else -1
     ret = (exit_price - entry) / entry
     pnl_bruto = size_usdt * leverage * direction_sign * ret
-    comision_total = size_usdt * (COMISION * 2)  # apertura + cierre
+    comision_total = size_usdt * (COMISION * 2)
     pnl_net = pnl_bruto - comision_total
-
-    # Cap de perdida al 90% del margen (igual que en el backtest)
     if pnl_net < -0.90 * size_usdt:
         pnl_net = -0.90 * size_usdt
-
     trade_record = {
-        "side":        side,
-        "strategy":    pos.get("strategy"),
+        "side": side,
+        "strategy": pos.get("strategy"),
         "entry_price": round(entry, 2),
-        "exit_price":  round(exit_price, 2),
-        "size_btc":    size_btc,
-        "size_usdt":   size_usdt,
-        "pct_used":    pos.get("pct_used"),
-        "leverage":    leverage,
-        "pnl_usdt":    round(pnl_net, 4),
-        "pnl_pct":     round(pnl_net / size_usdt * 100, 2) if size_usdt else 0,
-        "open_time":   pos.get("open_time"),
-        "close_time":  close_time,
-        "open_candle_ts":  pos.get("open_candle_ts"),
+        "exit_price": round(exit_price, 2),
+        "size_btc": size_btc,
+        "size_usdt": size_usdt,
+        "pct_used": pos.get("pct_used"),
+        "leverage": leverage,
+        "pnl_usdt": round(pnl_net, 4),
+        "pnl_pct": round(pnl_net / size_usdt * 100, 2) if size_usdt else 0,
+        "open_time": pos.get("open_time"),
+        "close_time": close_time,
+        "open_candle_ts": pos.get("open_candle_ts"),
         "exit_reason": exit_reason,
     }
     state.setdefault("trades", []).append(trade_record)
     state["position"] = empty_position()
-
     if pnl_net < 0:
         state["consecutive_losses"] = state.get("consecutive_losses", 0) + 1
     else:
         state["consecutive_losses"] = 0
-
     print(f"[E11] Trade cerrado ({exit_reason}): {side} entry={entry:.0f} exit={exit_price:.0f} PnL={pnl_net:.4f} USDT")
 
 
@@ -703,11 +581,9 @@ def run():
     state["runs"] = state.get("runs", 0) + 1
     state["last_run"] = now_utc
 
-    # Verificar si el bot esta pausado
     if state.get("paused"):
         print(f"[E11] Bot PAUSADO — razon: {state.get('pause_reason')}")
         save_state(state)
-        # Publicar estado aunque este pausado
         try:
             btc_price = 0
             if LIVE_MODE:
@@ -718,7 +594,6 @@ def run():
             pass
         return
 
-    # Inicializar cliente Bitget
     client = None
     if LIVE_MODE:
         try:
@@ -730,14 +605,12 @@ def run():
             save_state(state)
             return
 
-    # Actualizar balance desde Bitget
     balance = {"available": 0, "equity": 0, "unrealized_pl": 0}
     if client:
         try:
             balance = client.get_balance()
             state["live_balance"] = balance
             print(f"[E11] Balance: equity={balance['equity']:.4f}  disponible={balance['available']:.4f}")
-            # Inicializar equity inicial si es la primera vez
             if state.get("initial_equity", 0) == 0:
                 state["initial_equity"] = round(balance["equity"], 4)
                 print(f"[E11] Equity inicial establecido: {state['initial_equity']:.4f}")
@@ -750,7 +623,6 @@ def run():
         save_state(state)
         return
 
-    # Precio actual
     btc_price = 0
     if client:
         try:
@@ -768,7 +640,6 @@ def run():
     if (df_btc is None or df_btc.empty) and client:
         print("[E11] yfinance fallo en BTC, usando Bitget 1H como fallback")
         df_btc = get_bitget_candles(client, "BTCUSDT", "1H", limit=1200)
-
     if (df_eth is None or df_eth.empty) and client:
         print("[E11] yfinance fallo en ETH, usando Bitget 1H como fallback")
         tmp_eth = get_bitget_candles(client, "ETHUSDT", "1H", limit=1200)
@@ -785,10 +656,7 @@ def run():
     btc_price = float(df_btc["close"].iloc[-1])
     last_candle_ts = df_btc.index[-1].isoformat()
     current_hour_ts = df_btc.index[-1]
-    print(
-        f"[E11] BTC velas={len(df_btc)} close={btc_price:.2f} "
-        f"vela_eval={last_candle_ts} live_1m={'SI' if btc_live_built else 'NO'}"
-    )
+    print(f"[E11] BTC velas={len(df_btc)} close={btc_price:.2f} vela_eval={last_candle_ts} live_1m={'SI' if btc_live_built else 'NO'}")
 
     candles_snapshot = []
     for ts_c, row_c in df_btc.tail(240).iterrows():
@@ -803,46 +671,35 @@ def run():
     state["candles_1h"] = candles_snapshot
 
     # ── Verificar si hay posicion abierta que cerrar ──────────────────────────
-    # Regla del backtest: cerrar en el close de la vela SIGUIENTE a la de apertura.
-    # Es decir, cerramos en cuanto last_candle_ts != open_candle_ts.
     pos = state.get("position", {})
     if pos.get("open"):
         open_candle_ts = pos.get("open_candle_ts")
-
         if client:
-            # Comprobar que la posicion sigue abierta en Bitget
             try:
                 has_pos = client.has_open_position("BTCUSDT")
             except Exception as e:
                 print(f"[E11] Error verificando posicion: {e}")
                 state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
-                has_pos = True  # asumir que sigue abierta para no hacer nada raro
-
+                has_pos = True
             if not has_pos:
-                # La posicion ya no existe en Bitget (liquidacion, cierre manual, etc.)
                 print("[E11] Posicion no encontrada en Bitget — registrando cierre externo")
-                _register_trade_close(state, pos, btc_price, now_utc,
-                                      exit_reason="EXTERNAL_CLOSE")
+                _register_trade_close(state, pos, btc_price, now_utc, exit_reason="EXTERNAL_CLOSE")
             elif open_candle_ts and last_candle_ts != open_candle_ts:
-                # Ha cambiado la vela 1h → cierre forzoso a mercado (replica backtest)
                 print(f"[E11] Vela 1h cambio ({open_candle_ts} -> {last_candle_ts}) — cerrando a mercado")
                 try:
                     client.close_position("BTCUSDT")
-                    time.sleep(2)  # esperar a que se procese el cierre
+                    time.sleep(2)
                     exit_px = client.get_price("BTCUSDT")
-                    _register_trade_close(state, pos, exit_px, now_utc,
-                                          exit_reason="CANDLE_CLOSE")
+                    _register_trade_close(state, pos, exit_px, now_utc, exit_reason="CANDLE_CLOSE")
                 except Exception as e:
                     print(f"[E11] Error cerrando posicion: {e}")
                     state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
             else:
                 print(f"[E11] Posicion abierta en vela {open_candle_ts}, aun es la vela actual — mantener")
         else:
-            # Paper mode: cerrar si ha cambiado la vela
             if open_candle_ts and last_candle_ts != open_candle_ts:
                 print(f"[E11] (paper) Vela 1h cambio — cerrando simulado")
-                _register_trade_close(state, pos, btc_price, now_utc,
-                                      exit_reason="CANDLE_CLOSE_PAPER")
+                _register_trade_close(state, pos, btc_price, now_utc, exit_reason="CANDLE_CLOSE_PAPER")
 
     # Macro yfinance
     print("[E11] Descargando macro (Gold, DXY)...")
@@ -865,10 +722,10 @@ def run():
     # ── Pipeline de filtros ────────────────────────────────────────────────────
     signal   = "HOLD"
     prob     = None
-    strategy = None   # "E11" o "E6"
+    strategy = None
     filters  = {}
 
-    # Filtros comunes a ambas estrategias
+    # Filtros comunes
     hmm_filters = compute_hmm_regime_filters(df_btc)
     if hmm_filters is not None:
         regime = hmm_filters["regime"]
@@ -883,7 +740,7 @@ def run():
 
     vol_ok = vol_pct <= GARCH_VOL_UMBRAL
     ema_ok = ema_slope > 0
-    regime_e11_ok = regime == "BULL"
+    regime_bull = regime == "BULL"
 
     filters["pipeline_mode"] = pipeline_mode
     filters["regime"] = regime
@@ -891,12 +748,12 @@ def run():
     filters["vol_ok"] = vol_ok
     filters["ema200_slope"] = round(ema_slope, 6)
     filters["ema200_ok"] = ema_ok
-    filters["regime_e11_ok"] = regime_e11_ok
+    filters["regime_e11_ok"] = regime_bull
     filters["daily_context_ts"] = str(current_hour_ts.date())
 
     print(f"[BOT] Pipeline={pipeline_mode} | Regimen={regime} | Vol={vol_pct:.3f} | EMA200 slope={ema_slope:.6f}")
 
-    # ── Seleccion de submodelo segun regimen HMM (igual que pipeline TFG) ──────
+    # ── Seleccion de submodelo segun regimen HMM ──────────────────────────────
     if regime == "BULL":
         model_active = load_model("models/xgb_bull.pkl")
         model_tag = "xgb_bull"
@@ -910,100 +767,90 @@ def run():
         save_state(state)
         return
 
-    # Calcular probabilidad (una sola vez, la misma para E11 y E6)
+    # Calcular probabilidad
     xgb_prob = predict_proba(model_active, x)
     filters["prob_e11"] = round(xgb_prob, 4)
-    filters["prob_e6"]  = round(xgb_prob, 4)
+    filters["prob_e6"] = round(xgb_prob, 4)
     print(f"[BOT] XGBoost ({model_tag}) prob: {xgb_prob:.4f}")
 
-    # ── Filtro 3 del pipeline TFG: dead zone global 0.05 ───────────────────────
-    in_dead_zone_global = abs(xgb_prob - 0.5) <= DELTA_GLOBAL
-    filters["in_dead_zone_global"] = in_dead_zone_global
+    # ══════════════════════════════════════════════════════════════════════════
+    # CASCADA E11 → E6 (alineada con notebook de correccion)
+    # ══════════════════════════════════════════════════════════════════════════
 
-    # ── Intentar E11 primero ──────────────────────────────────────────────────
-    # Reglas del TFG (run_backtest_e11):
-    #   - active = vol_ok + |prob-0.5| > 0.05
-    #   - |prob-0.5| > DELTA_E11 (=0.20)
-    #   - shorts desactivados (ALLOW_SHORTS=False)
-    #   - macro_up (EMA200 slope > 0) solo para LONG
-    # NO exige regime == BULL (el regimen solo elige submodelo, no bloquea)
+    # ── E11: solo LONG, necesita regime BULL + vol_ok + ema_slope > 0 + prob - 0.5 > 0.20 ──
     print("[BOT] Intentando E11")
-    in_dead_zone_e11 = abs(xgb_prob - 0.5) <= DELTA
-    filters["in_dead_zone_e11"] = in_dead_zone_e11
-    filters["in_dead_zone_e6"] = None
+    entra_e11 = (
+        vol_ok and
+        regime_bull and
+        ema_ok and
+        (xgb_prob - 0.5 > DELTA)   # prob > 0.70
+    )
 
-    if not vol_ok:
-        print(f"[E11] Bloqueado por volatilidad: {vol_pct:.3f} > {GARCH_VOL_UMBRAL}")
-    elif in_dead_zone_global:
-        print(f"[E11] Bloqueado por dead zone global")
-    elif not regime_e11_ok:
-        print(f"[E11] Bloqueado por regimen: {regime}")
-    elif in_dead_zone_e11:
-        print(f"[E11] Bloqueado por dead zone E11")
-    elif xgb_prob <= 0.5:
-        print(f"[E11] Bloqueado porque solo LONG y prob={xgb_prob:.4f}")
-    elif not ema_ok:
-        print(f"[E11] Bloqueado por EMA200 slope={ema_slope:.6f}")
-    else:
+    if entra_e11:
         signal = "LONG"
         strategy = "E11"
         prob = xgb_prob
         pct_e11 = kelly_sizing(prob)
         filters["pct_kelly"] = round(pct_e11, 4)
         print(f"[E11] *** SENAL LONG valida | prob={xgb_prob:.4f} | pct={pct_e11:.4f} ***")
+    else:
+        # Log por que no entro E11
+        if not vol_ok:
+            print(f"[E11] Bloqueado por volatilidad: {vol_pct:.3f} > {GARCH_VOL_UMBRAL}")
+        elif not regime_bull:
+            print(f"[E11] Bloqueado por regimen: {regime} (necesita BULL)")
+        elif not ema_ok:
+            print(f"[E11] Bloqueado por EMA200 slope={ema_slope:.6f} (necesita > 0)")
+        else:
+            print(f"[E11] Bloqueado por dead zone: prob={xgb_prob:.4f} (necesita > 0.70)")
 
-    # ── Si E11 no da senal, intentar E6 como fallback ─────────────────────────
-    # Reglas del TFG (run_backtest con delta=0.30, apal=5, pct=0.40):
-    #   - active = vol_ok + |prob-0.5| > 0.05
-    #   - |prob-0.5| > DELTA_E6 (=0.30)
-    #   - LONG si prob>0.5 / SHORT si prob<0.5  (en cualquier regimen)
+    # ── E6 fallback: solo si E11 no entro y no hay posicion abierta ──────────
     if signal == "HOLD" and not state.get("position", {}).get("open"):
         print("[BOT] E11 no entra, intentando E6")
-        in_dead_zone_e6 = abs(xgb_prob - 0.5) <= E6_DELTA
-        filters["in_dead_zone_e6"] = in_dead_zone_e6
 
-        if not vol_ok:
-            print(f"[E6] Bloqueado por volatilidad: {vol_pct:.3f} > {GARCH_VOL_UMBRAL}")
-        elif in_dead_zone_global:
-            print(f"[E6] Bloqueado por dead zone global")
-        elif in_dead_zone_e6:
-            print(f"[E6] Bloqueado por dead zone E6")
-        else:
-            signal = "LONG" if xgb_prob > 0.5 else "SHORT"
+        entra_e6_long = vol_ok and (xgb_prob - 0.5 > E6_DELTA)     # prob > 0.80
+        entra_e6_short = vol_ok and (0.5 - xgb_prob > E6_DELTA)    # prob < 0.20
+
+        if entra_e6_long:
+            signal = "LONG"
             strategy = "E6"
             prob = xgb_prob
             filters["pct_e6"] = round(E6_PCT, 4)
-            print(f"[E6] *** SENAL {signal} valida | prob={xgb_prob:.4f} ***")
+            print(f"[E6] *** SENAL LONG valida | prob={xgb_prob:.4f} ***")
+        elif entra_e6_short:
+            signal = "SHORT"
+            strategy = "E6"
+            prob = xgb_prob
+            filters["pct_e6"] = round(E6_PCT, 4)
+            print(f"[E6] *** SENAL SHORT valida | prob={xgb_prob:.4f} ***")
+        else:
+            if not vol_ok:
+                print(f"[E6] Bloqueado por volatilidad: {vol_pct:.3f} > {GARCH_VOL_UMBRAL}")
+            else:
+                print(f"[E6] Bloqueado por dead zone: prob={xgb_prob:.4f} (necesita >0.80 o <0.20)")
 
-    filters["signal"]        = signal
-    filters["strategy"]      = strategy if strategy else "NONE"
-    filters["fear_greed_raw"]= round(fg_norm * 100, 1)
-    state["last_filters"]    = filters
-    state["last_signal"]     = signal
+    filters["signal"] = signal
+    filters["strategy"] = strategy if strategy else "NONE"
+    filters["fear_greed_raw"] = round(fg_norm * 100, 1)
+    filters["in_dead_zone_e11"] = not (xgb_prob - 0.5 > DELTA)
+    filters["in_dead_zone_e6"] = not (abs(xgb_prob - 0.5) > E6_DELTA)
+    state["last_filters"] = filters
+    state["last_signal"] = signal
 
-    # Historial de probabilidades (para grafico de confianza en dashboard)
-    prob_e11 = filters.get("prob_e11")
-    prob_e6  = filters.get("prob_e6")
+    # Historial de probabilidades
     prob_entry = {
-        "ts":       now_utc,
-        "regime":   regime,
-        "prob_e11": round(prob_e11, 4) if prob_e11 is not None else None,
-        "prob_e6":  round(prob_e6, 4)  if prob_e6  is not None else None,
-        "signal":   signal,
-        "strategy": strategy if strategy else "NONE",
+        "ts": now_utc, "regime": regime,
+        "prob_e11": round(xgb_prob, 4), "prob_e6": round(xgb_prob, 4),
+        "signal": signal, "strategy": strategy if strategy else "NONE",
     }
     state.setdefault("prob_history", []).append(prob_entry)
-    # Limitar a 500 entradas (~8h a 1 min)
     if len(state["prob_history"]) > 500:
         state["prob_history"] = state["prob_history"][-500:]
 
-    # Historial de regimen HMM por vela 1h (para bandas de regimen en dashboard).
-    # Solo anadimos una entrada cuando cambia la vela; varias ejecuciones del bot
-    # dentro de la misma vela no duplican datos.
+    # Historial de regimen HMM
     rh = state.setdefault("regime_history", [])
     if not rh or rh[-1].get("ts") != last_candle_ts:
         rh.append({"ts": last_candle_ts, "regime": regime})
-        # Mantener ~60 dias a 1h = 1440 velas
         if len(rh) > 1440:
             state["regime_history"] = rh[-1440:]
 
@@ -1011,18 +858,16 @@ def run():
 
     # ── Ejecutar trade ─────────────────────────────────────────────────────────
     if signal in ("LONG", "SHORT") and not state.get("position", {}).get("open"):
-        capital   = float(balance.get("available", equity))
+        capital = float(balance.get("available", equity))
         direction = "buy" if signal == "LONG" else "sell"
 
-        # Sizing segun estrategia
         if strategy == "E11":
-            pct       = kelly_sizing(prob)
+            pct = kelly_sizing(prob)
             size_usdt = capital * pct
             filters["pct_kelly"] = round(pct, 4)
             print(f"[E11] Kelly sizing: pct={pct:.3f}  capital={capital:.2f}  size={size_usdt:.2f} USDT")
         else:
-            # E6: sizing fijo 40%
-            pct       = E6_PCT
+            pct = E6_PCT
             size_usdt = capital * pct
             filters["pct_e6"] = round(pct, 4)
             print(f"[E6] Sizing fijo: pct={pct:.2f}  capital={capital:.2f}  size={size_usdt:.2f} USDT")
@@ -1030,27 +875,22 @@ def run():
         if client and size_usdt >= 5:
             try:
                 result = client.place_order(
-                    symbol    = "BTCUSDT",
-                    direction = direction,
-                    size_usdt = size_usdt * LEVERAGE,
-                    leverage  = LEVERAGE
+                    symbol="BTCUSDT", direction=direction,
+                    size_usdt=size_usdt * LEVERAGE, leverage=LEVERAGE
                 )
                 state["position"] = {
-                    "open":           True,
-                    "side":           signal,
-                    "strategy":       strategy,
-                    "entry_price":    result["entry_px"],
-                    "size_btc":       result["qty"],
-                    "size_usdt":      round(size_usdt, 4),
-                    "pct_used":       round(pct, 4),
-                    "leverage":       LEVERAGE,
-                    "open_time":      now_utc,
-                    "open_candle_ts": last_candle_ts,   # << clave para cierre a siguiente vela
-                    "order_id":       result["orderId"],
+                    "open": True, "side": signal, "strategy": strategy,
+                    "entry_price": result["entry_px"],
+                    "size_btc": result["qty"],
+                    "size_usdt": round(size_usdt, 4),
+                    "pct_used": round(pct, 4),
+                    "leverage": LEVERAGE,
+                    "open_time": now_utc,
+                    "open_candle_ts": last_candle_ts,
+                    "order_id": result["orderId"],
                 }
                 state["consecutive_errors"] = 0
-                print(f"[{strategy}] {signal} abierto: {result['qty']} BTC @ {result['entry_px']:.2f}  "
-                      f"vela={last_candle_ts} — se cerrara al cambiar de vela 1h")
+                print(f"[{strategy}] {signal} abierto: {result['qty']} BTC @ {result['entry_px']:.2f}  vela={last_candle_ts}")
             except Exception as e:
                 print(f"[BOT] Error abriendo posicion: {e}")
                 state["consecutive_errors"] = state.get("consecutive_errors", 0) + 1
@@ -1058,17 +898,15 @@ def run():
         elif not client:
             print(f"[{strategy}] Paper mode — {signal} simulado: {size_usdt:.2f} USDT")
             state["position"] = {
-                "open":           True,
-                "side":           signal,
-                "strategy":       strategy,
-                "entry_price":    btc_price,
-                "size_btc":       round(size_usdt / btc_price, 6),
-                "size_usdt":      round(size_usdt, 4),
-                "pct_used":       round(pct, 4),
-                "leverage":       LEVERAGE,
-                "open_time":      now_utc,
+                "open": True, "side": signal, "strategy": strategy,
+                "entry_price": btc_price,
+                "size_btc": round(size_usdt / btc_price, 6),
+                "size_usdt": round(size_usdt, 4),
+                "pct_used": round(pct, 4),
+                "leverage": LEVERAGE,
+                "open_time": now_utc,
                 "open_candle_ts": last_candle_ts,
-                "order_id":       "PAPER",
+                "order_id": "PAPER",
             }
         else:
             print(f"[BOT] size_usdt={size_usdt:.2f} demasiado pequeno (<5 USDT), no se ejecuta")
@@ -1078,12 +916,11 @@ def run():
 
     # ── Equity history ────────────────────────────────────────────────────────
     eq_entry = {
-        "ts":        now_utc,
-        "equity":    round(equity, 4),
-        "unrealPL":  round(float(balance.get("unrealized_pl", 0)), 4)
+        "ts": now_utc,
+        "equity": round(equity, 4),
+        "unrealPL": round(float(balance.get("unrealized_pl", 0)), 4)
     }
     state.setdefault("equity_history", []).append(eq_entry)
-    # Limitar a 2000 entradas (~33h a 1 min)
     if len(state["equity_history"]) > 2000:
         state["equity_history"] = state["equity_history"][-2000:]
 
