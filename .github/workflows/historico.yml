@@ -1,14 +1,14 @@
-name: Generar Historico
+name: Generar historico backtest
 
 on:
   workflow_dispatch:
   schedule:
-    - cron: "0 6 * * 0"
+    - cron: "0 6 * * *"
 
 jobs:
-  historico:
+  generar:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
 
     permissions:
       contents: write
@@ -25,16 +25,44 @@ jobs:
           python-version: "3.12"
           cache: "pip"
 
-      - name: Install dependencies
-        run: pip install -r requirements.txt pandas-ta --quiet
+      - name: Upgrade pip
+        run: python -m pip install --upgrade pip
 
-      - name: Run historico
+      - name: Install dependencies
+        run: |
+          pip install --quiet \
+            numpy \
+            pandas \
+            yfinance \
+            hmmlearn \
+            xgboost \
+            scikit-learn \
+            pandas-ta \
+            requests
+
+      - name: Generar historical_trades.json
         run: python generar_historico.py
 
-      - name: Commit and push
+      - name: Verify output
         run: |
-          git config user.name "e11-bot"
-          git config user.email "e11-bot@noreply.github.com"
+          test -f docs/historical_trades.json
+          python - <<'PY'
+          import json
+          with open("docs/historical_trades.json","r",encoding="utf-8") as f:
+              data = json.load(f)
+          print("OK historical_trades.json generado")
+          print("meta", data.get("meta", {}))
+          print("source", data.get("meta", {}).get("source"))
+          print("data_mode", data.get("meta", {}).get("data_mode"))
+          PY
+
+      - name: Commit and push result
+        run: |
+          git config user.name "e11-bot-historico"
+          git config user.email "e11-bot-historico@noreply.github.com"
+          git fetch origin main
+          git checkout main
+          git pull origin main --ff-only || git reset --hard origin/main
           git add docs/historical_trades.json
-          git diff --cached --quiet || git commit -m "historico update"
+          git diff --cached --quiet || git commit -m "historico refresh"
           git push origin main
