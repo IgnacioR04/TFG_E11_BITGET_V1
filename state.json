@@ -1,6 +1,6 @@
 {
-  "runs": 7698,
-  "last_run": "2026-04-24T04:01:15.399805+00:00",
+  "runs": 7699,
+  "last_run": "2026-04-24T04:02:57.795339+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,13 +23,13 @@
     "regime": "BEAR",
     "vol_percentile": 0.5581,
     "vol_ok": true,
-    "ema200_slope": -277.922073,
+    "ema200_slope": -277.916242,
     "ema200_ok": false,
     "regime_e11_ok": false,
     "daily_context_ts": "2026-04-24",
     "submodel": "xgb_bear",
-    "prob_e11": 0.5637,
-    "prob_e6": 0.5637,
+    "prob_e11": 0.5654,
+    "prob_e6": 0.5654,
     "signal": "HOLD",
     "strategy": "NONE",
     "fear_greed_raw": 39.0,
@@ -38,11 +38,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-22T02:26:55.965639+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-22T02:27:54.967676+00:00",
       "equity": 57.942,
@@ -10037,6 +10032,11 @@
       "ts": "2026-04-24T04:01:15.399805+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-24T04:02:57.795339+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11961,20 +11961,12 @@
       "ts": "2026-04-24T04:00:00+00:00",
       "open": 77744.91,
       "high": 77748.0,
-      "low": 77716.41,
-      "close": 77716.41,
+      "low": 77700.97,
+      "close": 77716.99,
       "volume": 51822592.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-23T15:19:01.462991+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.4502,
-      "prob_e6": 0.4502,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-23T15:21:05.226980+00:00",
       "regime": "BEAR",
@@ -15964,6 +15956,14 @@
       "regime": "BEAR",
       "prob_e11": 0.5637,
       "prob_e6": 0.5637,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-24T04:02:57.795339+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.5654,
+      "prob_e6": 0.5654,
       "signal": "HOLD",
       "strategy": "NONE"
     }
