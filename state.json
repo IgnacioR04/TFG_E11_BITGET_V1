@@ -1,6 +1,6 @@
 {
-  "runs": 7999,
-  "last_run": "2026-04-24T11:33:54.293736+00:00",
+  "runs": 8000,
+  "last_run": "2026-04-24T11:34:56.613747+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -23,13 +23,13 @@
     "regime": "BEAR",
     "vol_percentile": 0.5349,
     "vol_ok": true,
-    "ema200_slope": -271.346591,
+    "ema200_slope": -271.146808,
     "ema200_ok": false,
     "regime_e11_ok": false,
     "daily_context_ts": "2026-04-24",
     "submodel": "xgb_bear",
-    "prob_e11": 0.3615,
-    "prob_e6": 0.3615,
+    "prob_e11": 0.3536,
+    "prob_e6": 0.3536,
     "signal": "HOLD",
     "strategy": "NONE",
     "fear_greed_raw": 39.0,
@@ -38,11 +38,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-22T08:58:55.601792+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-22T08:59:50.602603+00:00",
       "equity": 57.942,
@@ -10037,6 +10032,11 @@
       "ts": "2026-04-24T11:33:54.293736+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-24T11:34:56.613747+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11959,22 +11959,14 @@
     },
     {
       "ts": "2026-04-24T11:00:00+00:00",
-      "open": 77776.02,
-      "high": 78377.24,
-      "low": 77762.44,
-      "close": 78377.24,
-      "volume": 1186127872.0
+      "open": 77769.23,
+      "high": 78397.32,
+      "low": 77762.45,
+      "close": 78397.32,
+      "volume": 1185394688.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-23T23:23:51.506903+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.4808,
-      "prob_e6": 0.4808,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-23T23:24:53.208824+00:00",
       "regime": "BEAR",
@@ -15964,6 +15956,14 @@
       "regime": "BEAR",
       "prob_e11": 0.3615,
       "prob_e6": 0.3615,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-24T11:34:56.613747+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.3536,
+      "prob_e6": 0.3536,
       "signal": "HOLD",
       "strategy": "NONE"
     }
