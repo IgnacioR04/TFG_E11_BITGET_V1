@@ -1,6 +1,6 @@
 {
-  "runs": 8055,
-  "last_run": "2026-04-24T12:58:56.925119+00:00",
+  "runs": 8056,
+  "last_run": "2026-04-24T12:59:57.595525+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -21,15 +21,15 @@
   "last_filters": {
     "pipeline_mode": "HMM_REAL",
     "regime": "BEAR",
-    "vol_percentile": 0.5419,
+    "vol_percentile": 0.5395,
     "vol_ok": true,
-    "ema200_slope": -272.864159,
+    "ema200_slope": -272.146342,
     "ema200_ok": false,
     "regime_e11_ok": false,
     "daily_context_ts": "2026-04-24",
     "submodel": "xgb_bear",
-    "prob_e11": 0.4783,
-    "prob_e6": 0.4783,
+    "prob_e11": 0.4381,
+    "prob_e6": 0.4381,
     "signal": "HOLD",
     "strategy": "NONE",
     "fear_greed_raw": 39.0,
@@ -38,11 +38,6 @@
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-22T10:14:56.300519+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-22T10:16:00.141203+00:00",
       "equity": 57.942,
@@ -10037,6 +10032,11 @@
       "ts": "2026-04-24T12:58:56.925119+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-04-24T12:59:57.595525+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -11962,19 +11962,11 @@
       "open": 78272.97,
       "high": 78377.05,
       "low": 78056.88,
-      "close": 78224.73,
-      "volume": 248107008.0
+      "close": 78296.87,
+      "volume": 250724352.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-24T00:44:15.596424+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.5089,
-      "prob_e6": 0.5089,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-24T00:45:58.305411+00:00",
       "regime": "BEAR",
@@ -15964,6 +15956,14 @@
       "regime": "BEAR",
       "prob_e11": 0.4783,
       "prob_e6": 0.4783,
+      "signal": "HOLD",
+      "strategy": "NONE"
+    },
+    {
+      "ts": "2026-04-24T12:59:57.595525+00:00",
+      "regime": "BEAR",
+      "prob_e11": 0.4381,
+      "prob_e6": 0.4381,
       "signal": "HOLD",
       "strategy": "NONE"
     }
