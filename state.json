@@ -1,6 +1,6 @@
 {
-  "runs": 9354,
-  "last_run": "2026-05-11T01:28:13.930209+00:00",
+  "runs": 9355,
+  "last_run": "2026-05-11T05:32:13.888422+00:00",
   "paused": false,
   "pause_reason": null,
   "consecutive_errors": 0,
@@ -20,29 +20,24 @@
   "last_signal": "HOLD",
   "last_filters": {
     "pipeline_mode": "HMM_REAL",
-    "regime": "SIDEWAYS",
-    "vol_percentile": 0.0798,
+    "regime": "BULL",
+    "vol_percentile": 0.0915,
     "vol_ok": true,
-    "ema200_slope": -62.265071,
+    "ema200_slope": -69.115895,
     "ema200_ok": false,
-    "regime_e11_ok": false,
+    "regime_e11_ok": true,
     "daily_context_ts": "2026-05-11",
-    "submodel": "xgb_bear",
-    "prob_e11": 0.4046,
-    "prob_e6": 0.4046,
+    "submodel": "xgb_bull",
+    "prob_e11": 0.7499,
+    "prob_e6": 0.7499,
     "signal": "HOLD",
     "strategy": "NONE",
     "fear_greed_raw": 48.0,
-    "in_dead_zone_e11": true,
+    "in_dead_zone_e11": false,
     "in_dead_zone_e6": true
   },
   "trades": [],
   "equity_history": [
-    {
-      "ts": "2026-04-23T19:38:56.533316+00:00",
-      "equity": 57.942,
-      "unrealPL": 0.0
-    },
     {
       "ts": "2026-04-23T19:39:56.315508+00:00",
       "equity": 57.942,
@@ -10037,6 +10032,11 @@
       "ts": "2026-05-11T01:28:13.930209+00:00",
       "equity": 57.942,
       "unrealPL": 0.0
+    },
+    {
+      "ts": "2026-05-11T05:32:13.888422+00:00",
+      "equity": 57.942,
+      "unrealPL": 0.0
     }
   ],
   "live_balance": {
@@ -10045,38 +10045,6 @@
     "unrealized_pl": 0.0
   },
   "candles_1h": [
-    {
-      "ts": "2026-04-30T13:00:00+00:00",
-      "open": 76302.46,
-      "high": 76614.0,
-      "low": 76074.97,
-      "close": 76382.0,
-      "volume": 0.0
-    },
-    {
-      "ts": "2026-04-30T14:00:00+00:00",
-      "open": 76382.57,
-      "high": 76558.22,
-      "low": 76056.07,
-      "close": 76268.49,
-      "volume": 0.0
-    },
-    {
-      "ts": "2026-04-30T15:00:00+00:00",
-      "open": 76281.95,
-      "high": 76620.91,
-      "low": 76124.37,
-      "close": 76438.84,
-      "volume": 0.0
-    },
-    {
-      "ts": "2026-04-30T16:00:00+00:00",
-      "open": 76424.99,
-      "high": 76452.22,
-      "low": 76181.99,
-      "close": 76220.05,
-      "volume": 0.0
-    },
     {
       "ts": "2026-04-30T17:00:00+00:00",
       "open": 76205.5,
@@ -11962,19 +11930,43 @@
       "open": 81459.63,
       "high": 81727.52,
       "low": 81270.01,
-      "close": 81622.18,
-      "volume": 1062817792.0
+      "close": 81486.55,
+      "volume": 1960622080.0
+    },
+    {
+      "ts": "2026-05-11T02:00:00+00:00",
+      "open": 81487.11,
+      "high": 81546.92,
+      "low": 81100.88,
+      "close": 81155.61,
+      "volume": 749127680.0
+    },
+    {
+      "ts": "2026-05-11T03:00:00+00:00",
+      "open": 81149.6,
+      "high": 81171.6,
+      "low": 80507.8,
+      "close": 80717.45,
+      "volume": 2286948352.0
+    },
+    {
+      "ts": "2026-05-11T04:00:00+00:00",
+      "open": 80698.11,
+      "high": 80853.56,
+      "low": 80619.84,
+      "close": 80806.46,
+      "volume": 457668608.0
+    },
+    {
+      "ts": "2026-05-11T05:00:00+00:00",
+      "open": 80791.41,
+      "high": 80953.77,
+      "low": 80788.4,
+      "close": 80933.67,
+      "volume": 869623808.0
     }
   ],
   "prob_history": [
-    {
-      "ts": "2026-04-25T09:25:57.308091+00:00",
-      "regime": "BEAR",
-      "prob_e11": 0.5247,
-      "prob_e6": 0.5247,
-      "signal": "HOLD",
-      "strategy": "NONE"
-    },
     {
       "ts": "2026-04-25T09:27:07.728451+00:00",
       "regime": "BEAR",
@@ -15966,6 +15958,14 @@
       "prob_e6": 0.4046,
       "signal": "HOLD",
       "strategy": "NONE"
+    },
+    {
+      "ts": "2026-05-11T05:32:13.888422+00:00",
+      "regime": "BULL",
+      "prob_e11": 0.7499,
+      "prob_e6": 0.7499,
+      "signal": "HOLD",
+      "strategy": "NONE"
     }
   ],
   "regime_history": [
@@ -17692,6 +17692,10 @@
     {
       "ts": "2026-05-11T01:00:00+00:00",
       "regime": "SIDEWAYS"
+    },
+    {
+      "ts": "2026-05-11T05:00:00+00:00",
+      "regime": "BULL"
     }
   ]
 }
